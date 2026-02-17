@@ -2,14 +2,24 @@ import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 
-const store = createXRStore()
+const store = createXRStore({ bodyTracking: true })
 const WS_URL = "wss://almond-pi5.local:8000"
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
 
-function LeftController() {
+const ARM_JOINTS = ["left-arm-upper", "left-arm-lower"] as const
+
+function poseToPayload(pose: XRPose) {
+  const { position, orientation } = pose.transform
+  return {
+    pos: { x: position.x, y: position.y, z: position.z },
+    quat: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
+  }
+}
+
+function PoseSender() {
   const { gl } = useThree()
 
   useFrame(() => {
@@ -19,19 +29,35 @@ function LeftController() {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
 
+    const frame = gl.xr.getFrame()
+    const refSpace = gl.xr.getReferenceSpace()
+    if (!frame || !refSpace) return
+
+    const payload: Record<string, unknown> = {}
+
+    // Controller (left grip) pose
     const inputSource = Array.from(session.inputSources).find(
       (source: XRInputSource) => source.handedness === "left"
     )
-
     if (inputSource?.gripSpace) {
-      const pose = gl.xr.getFrame()?.getPose(inputSource.gripSpace, gl.xr.getReferenceSpace()!)
-      if (pose) {
-        const { position, orientation } = pose.transform
-        ws.send(JSON.stringify({
-          pos: { x: position.x, y: position.y, z: position.z },
-          quat: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
-        }))
+      const pose = frame.getPose(inputSource.gripSpace, refSpace)
+      if (pose) payload.controller = poseToPayload(pose)
+    }
+
+    // Body tracking: left-arm-upper, left-arm-lower
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    if (body) {
+      for (const jointName of ARM_JOINTS) {
+        const space = body.get(jointName as XRBodyJoint)
+        if (space) {
+          const pose = frame.getPose(space, refSpace)
+          if (pose) payload[jointName] = poseToPayload(pose)
+        }
       }
+    }
+
+    if (Object.keys(payload).length > 0) {
+      ws.send(JSON.stringify(payload))
     }
   })
 
@@ -118,7 +144,7 @@ export default function App() {
   return (
     <>
       <div style={{ position: "fixed", top: 8, left: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button type="button" onClick={() => store.enterAR()}>Enter AR</button>
           <span
             style={{
@@ -161,7 +187,7 @@ export default function App() {
 
       <Canvas>
         <XR store={store}>
-          <LeftController />
+          <PoseSender />
         </XR>
       </Canvas>
     </>
