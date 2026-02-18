@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 
 const store = createXRStore({ bodyTracking: true })
-const WS_URL = "wss://almond-pi5.local:8000/ws"
+const WS_URL = "wss://almond-pi.local:8000/ws"
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
