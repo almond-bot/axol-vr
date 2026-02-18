@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { Html } from "@react-three/drei"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
@@ -20,61 +19,27 @@ function poseToPayload(pose: XRPose) {
   }
 }
 
-type PoseInfo = {
-  pos: { x: number; y: number; z: number }
-  euler: { x: number; y: number; z: number }
-} | null
+const AXIS_SIZE = 0.12
+const DOT_RADIUS = 0.012
 
-const RAD = 180 / Math.PI
-const _q = new THREE.Quaternion()
-const _e = new THREE.Euler()
-
-function quatToEuler(q: { x: number; y: number; z: number; w: number }) {
-  _q.set(q.x, q.y, q.z, q.w)
-  _e.setFromQuaternion(_q, "XYZ")
-  return { x: _e.x * RAD, y: _e.y * RAD, z: _e.z * RAD }
-}
-
-function PosePanel({ label, info, position }: { label: string; info: PoseInfo; position: [number, number, number] }) {
+function AxesMarker({ groupRef, color }: { groupRef: React.RefObject<THREE.Group | null>; color: string }) {
+  const axes = useMemo(() => new THREE.AxesHelper(AXIS_SIZE), [])
   return (
-    <Html position={position} transform occlude={false} style={{ pointerEvents: "none" }}>
-      <div style={{
-        background: "rgba(0,0,0,0.75)",
-        color: "#fff",
-        fontFamily: "monospace",
-        fontSize: 11,
-        padding: "6px 10px",
-        borderRadius: 6,
-        border: "1px solid rgba(255,255,255,0.2)",
-        minWidth: 180,
-        whiteSpace: "nowrap",
-      }}>
-        <div style={{ fontWeight: "bold", marginBottom: 4, color: "#a5f3fc" }}>{label}</div>
-        {info ? (
-          <>
-            <div style={{ color: "#86efac" }}>pos</div>
-            <div>x {info.pos.x.toFixed(3)}</div>
-            <div>y {info.pos.y.toFixed(3)}</div>
-            <div>z {info.pos.z.toFixed(3)}</div>
-            <div style={{ color: "#fde68a", marginTop: 4 }}>rot (deg)</div>
-            <div>x {info.euler.x.toFixed(1)}</div>
-            <div>y {info.euler.y.toFixed(1)}</div>
-            <div>z {info.euler.z.toFixed(1)}</div>
-          </>
-        ) : (
-          <div style={{ opacity: 0.5 }}>no data</div>
-        )}
-      </div>
-    </Html>
+    <group ref={groupRef} visible={false}>
+      <primitive object={axes} />
+      <mesh>
+        <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+    </group>
   )
 }
 
-function PoseDisplay() {
+function PoseVisualizer() {
   const { gl } = useThree()
-  const [upper, setUpper] = useState<PoseInfo>(null)
-  const [lower, setLower] = useState<PoseInfo>(null)
-  const [controller, setController] = useState<PoseInfo>(null)
-  const tickRef = useRef(0)
+  const upperRef = useRef<THREE.Group>(null)
+  const lowerRef = useRef<THREE.Group>(null)
+  const controllerRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -86,29 +51,29 @@ function PoseDisplay() {
     const leftSource = Array.from(session.inputSources).find(
       (s: XRInputSource) => s.handedness === "left"
     )
-
     const body = (frame as XRFrame & { body?: XRBody }).body
 
-    function readPose(space: XRSpace): PoseInfo {
+    function applyPose(group: THREE.Group | null, space: XRSpace | null | undefined) {
+      if (!group) return
+      if (!space) { group.visible = false; return }
       const pose = frame.getPose(space, refSpace!)
-      if (!pose) return null
+      if (!pose) { group.visible = false; return }
       const { position: p, orientation: o } = pose.transform
-      return { pos: { x: p.x, y: p.y, z: p.z }, euler: quatToEuler(o) }
+      group.position.set(p.x, p.y, p.z)
+      group.quaternion.set(o.x, o.y, o.z, o.w)
+      group.visible = true
     }
 
-    tickRef.current += 1
-    if (tickRef.current % 6 !== 0) return
-
-    setUpper(body?.get("left-arm-upper" as XRBodyJoint) ? readPose(body!.get("left-arm-upper" as XRBodyJoint)!) : null)
-    setLower(body?.get("left-arm-lower" as XRBodyJoint) ? readPose(body!.get("left-arm-lower" as XRBodyJoint)!) : null)
-    setController(leftSource?.gripSpace ? readPose(leftSource.gripSpace) : null)
+    applyPose(upperRef.current, body?.get("left-arm-upper" as XRBodyJoint) ?? null)
+    applyPose(lowerRef.current, body?.get("left-arm-lower" as XRBodyJoint) ?? null)
+    applyPose(controllerRef.current, leftSource?.gripSpace ?? null)
   })
 
   return (
     <>
-      <PosePanel label="left-arm-upper" info={upper} position={[-0.6, 1.4, -1]} />
-      <PosePanel label="left-arm-lower" info={lower} position={[-0.6, 1.1, -1]} />
-      <PosePanel label="controller (L)" info={controller} position={[-0.6, 0.8, -1]} />
+      <AxesMarker groupRef={upperRef} color="#c084fc" />
+      <AxesMarker groupRef={lowerRef} color="#34d399" />
+      <AxesMarker groupRef={controllerRef} color="#60a5fa" />
     </>
   )
 }
@@ -340,7 +305,7 @@ export default function App() {
       <Canvas>
         <XR store={store}>
           <PoseSender />
-          <PoseDisplay />
+          <PoseVisualizer />
         </XR>
       </Canvas>
     </>
