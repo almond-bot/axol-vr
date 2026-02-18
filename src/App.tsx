@@ -3,7 +3,6 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 
 const store = createXRStore({ bodyTracking: true })
-const WS_URL = "wss://almond-pi.local:8000/ws"
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
@@ -83,29 +82,48 @@ function PoseSender() {
   return null
 }
 
-type ConnectionStatus = "connecting" | "open" | "closed" | "error" | "failed"
+type ConnectionStatus = "idle" | "connecting" | "open" | "closed" | "error" | "failed"
 
 export default function App() {
-  const [status, setStatus] = useState<ConnectionStatus>("connecting")
-  const [retryKey, setRetryKey] = useState(0)
+  const [hostname, setHostname] = useState(() => localStorage.getItem("wsHostname") ?? "")
+  const [wsUrl, setWsUrl] = useState<string | null>(null)
+  const [status, setStatus] = useState<ConnectionStatus>("idle")
   const retryCountRef = useRef(0)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
-  const handleRetry = () => {
+  const handleConnect = () => {
+    localStorage.setItem("wsHostname", hostname)
+    const url = `wss://${hostname}:8000/ws`
     retryCountRef.current = 0
     setStatus("connecting")
-    setRetryKey((k) => k + 1)
+    setWsUrl(url)
+  }
+
+  const handleDisconnect = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
+    const current = wsRef.current
+    if (current) {
+      current.onclose = null
+      current.close()
+      wsRef.current = null
+    }
+    setWsUrl(null)
+    setStatus("idle")
   }
 
   useEffect(() => {
+    if (!wsUrl) return
     mountedRef.current = true
 
     const startConnection = () => {
       if (!mountedRef.current) return
 
       function connect(): WebSocket {
-        const ws = new WebSocket(WS_URL)
+        const ws = new WebSocket(wsUrl!)
         wsRef.current = ws
 
         ws.onopen = () => {
@@ -158,50 +176,70 @@ export default function App() {
         wsRef.current = null
       }
     }
-  }, [retryKey])
+  }, [wsUrl])
+
+  const isActive = status === "connecting" || status === "open"
 
   return (
     <>
-      <div style={{ position: "fixed", top: 8, left: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => store.enterAR()}>Enter AR</button>
-          <span
-            style={{
-              fontSize: 12,
-              opacity: 0.9,
-              color: status === "open" ? "#4ade80" : status === "failed" || status === "error" || status === "closed" ? "#f87171" : "#eab308"
-            }}
-            title={status === "open" ? "Connected" : status === "connecting" ? "Connecting…" : status === "failed" ? `Connection failed after ${MAX_RETRIES} attempts` : "WebSocket unavailable"}
-          >
-            {status === "open" ? "● Connected" : status === "connecting" ? "○ Connecting…" : status === "failed" ? `● Failed after ${MAX_RETRIES} tries` : "● Disconnected"}
-          </span>
-        </div>
-        {status === "failed" && (
-          <div
-            style={{
-              fontSize: 12,
-              color: "#f87171",
-              padding: "6px 10px",
-              background: "rgba(248, 113, 113, 0.15)",
-              borderRadius: 6,
-              maxWidth: 280,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8
-            }}
-          >
-            <span>
-              WebSocket could not connect to {WS_URL} after {MAX_RETRIES} attempts. Check that the server is running.
+      <div style={{ position: "fixed", inset: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, pointerEvents: "none" }}>
+        <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          {status === "open" && (
+            <button type="button" onClick={() => store.enterAR()}>Start</button>
+          )}
+          {isActive && (
+            <span
+              style={{
+                fontSize: 12,
+                opacity: 0.9,
+                color: status === "open" ? "#4ade80" : "#eab308"
+              }}
+            >
+              {status === "open" ? "● Connected" : "○ Connecting…"}
             </span>
+          )}
+          {!isActive && (
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleConnect() }}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <input
+                type="text"
+                value={hostname}
+                onChange={(e) => setHostname(e.target.value)}
+                placeholder="rpi.local"
+                style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid #555", background: "#1a1a1a", color: "#eee", width: 160 }}
+              />
+              <button type="submit" style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+                Connect
+              </button>
+            </form>
+          )}
+          {isActive && (
             <button
               type="button"
-              onClick={handleRetry}
-              style={{ alignSelf: "flex-start", padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
+              onClick={handleDisconnect}
+              style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
             >
-              Retry
+              Disconnect
             </button>
-          </div>
-        )}
+          )}
+          {status === "failed" && (
+            <div
+              style={{
+                fontSize: 12,
+                color: "#f87171",
+                padding: "6px 10px",
+                background: "rgba(248, 113, 113, 0.15)",
+                borderRadius: 6,
+                maxWidth: 280,
+                textAlign: "center",
+              }}
+            >
+              Could not connect to {wsUrl} after {MAX_RETRIES} attempts. Check that the server is running.
+            </div>
+          )}
+        </div>
       </div>
 
       <Canvas>
