@@ -3,20 +3,26 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
+// @pmndrs/xr already requests local-floor by default
 const store = createXRStore({ bodyTracking: true })
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
 
-const ARM_JOINTS = ["left-arm-upper", "left-arm-lower"] as const
+const SHOULDER_NODE = "left-shoulder" as XRBodyJoint
+const ELBOW_NODE = "left-arm-lower" as XRBodyJoint
 
-function poseToPayload(pose: XRPose) {
-  const { position, orientation } = pose.transform
-  return {
-    pos: { x: position.x, y: position.y, z: position.z },
-    quat: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
-  }
+// WebXR → URDF (ROS REP-103) coordinate conversion:
+//   URDF X (Forward) = WebXR −Z
+//   URDF Y (Left)    = WebXR −X
+//   URDF Z (Up)      = WebXR  Y
+function toUrdfPos(v: THREE.Vector3): { x: number; y: number; z: number } {
+  return { x: -v.z, y: -v.x, z: v.y }
+}
+
+function toUrdfQuat(q: THREE.Quaternion): { x: number; y: number; z: number; w: number } {
+  return { x: -q.z, y: -q.x, z: q.y, w: q.w }
 }
 
 const AXIS_LEN = 0.1
@@ -61,8 +67,8 @@ function AxesMarker({ groupRef, color }: { groupRef: React.RefObject<THREE.Group
 
 function PoseVisualizer() {
   const { gl } = useThree()
-  const upperRef = useRef<THREE.Group>(null)
-  const lowerRef = useRef<THREE.Group>(null)
+  const shoulderRef = useRef<THREE.Group>(null)
+  const elbowRef = useRef<THREE.Group>(null)
   const controllerRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
@@ -88,15 +94,15 @@ function PoseVisualizer() {
       group.visible = true
     }
 
-    applyPose(upperRef.current, body?.get("left-arm-upper" as XRBodyJoint) ?? null)
-    applyPose(lowerRef.current, body?.get("left-arm-lower" as XRBodyJoint) ?? null)
+    applyPose(shoulderRef.current, body?.get(SHOULDER_NODE) ?? null)
+    applyPose(elbowRef.current, body?.get(ELBOW_NODE) ?? null)
     applyPose(controllerRef.current, leftSource?.gripSpace ?? null)
   })
 
   return (
     <>
-      <AxesMarker groupRef={upperRef} color="#c084fc" />
-      <AxesMarker groupRef={lowerRef} color="#34d399" />
+      <AxesMarker groupRef={shoulderRef} color="#c084fc" />
+      <AxesMarker groupRef={elbowRef} color="#34d399" />
       <AxesMarker groupRef={controllerRef} color="#60a5fa" />
     </>
   )
@@ -133,6 +139,26 @@ function PoseSender() {
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
 
+    // Require shoulder as the anchor for all relative calculations
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    const shoulderSpace = body?.get(SHOULDER_NODE)
+    if (!shoulderSpace) return
+    const shoulderPose = frame.getPose(shoulderSpace, refSpace)
+    if (!shoulderPose) return
+
+    const shoulderPos = new THREE.Vector3(
+      shoulderPose.transform.position.x,
+      shoulderPose.transform.position.y,
+      shoulderPose.transform.position.z,
+    )
+    const shoulderQuat = new THREE.Quaternion(
+      shoulderPose.transform.orientation.x,
+      shoulderPose.transform.orientation.y,
+      shoulderPose.transform.orientation.z,
+      shoulderPose.transform.orientation.w,
+    )
+    const shoulderQuatInv = shoulderQuat.clone().invert()
+
     const payload: Record<string, unknown> = {}
 
     if (needsCalibrateRef.current) {
@@ -140,21 +166,39 @@ function PoseSender() {
       needsCalibrateRef.current = false
     }
 
-    // Controller (left grip) pose
+    // Controller: position and orientation relative to shoulder, then → URDF
     if (leftSource?.gripSpace) {
       const pose = frame.getPose(leftSource.gripSpace, refSpace)
-      if (pose) payload.controller = poseToPayload(pose)
+      if (pose) {
+        const worldPos = new THREE.Vector3(
+          pose.transform.position.x,
+          pose.transform.position.y,
+          pose.transform.position.z,
+        )
+        const worldQuat = new THREE.Quaternion(
+          pose.transform.orientation.x,
+          pose.transform.orientation.y,
+          pose.transform.orientation.z,
+          pose.transform.orientation.w,
+        )
+        const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
+        const relQuat = shoulderQuatInv.clone().multiply(worldQuat)
+        payload.controller = { pos: toUrdfPos(relPos), quat: toUrdfQuat(relQuat) }
+      }
     }
 
-    // Body tracking: left-arm-upper, left-arm-lower
-    const body = (frame as XRFrame & { body?: XRBody }).body
-    if (body) {
-      for (const jointName of ARM_JOINTS) {
-        const space = body.get(jointName as XRBodyJoint)
-        if (space) {
-          const pose = frame.getPose(space, refSpace)
-          if (pose) payload[jointName] = poseToPayload(pose)
-        }
+    // Elbow: position only relative to shoulder, then → URDF (quat ignored by IK solver)
+    const elbowSpace = body?.get(ELBOW_NODE)
+    if (elbowSpace) {
+      const pose = frame.getPose(elbowSpace, refSpace)
+      if (pose) {
+        const worldPos = new THREE.Vector3(
+          pose.transform.position.x,
+          pose.transform.position.y,
+          pose.transform.position.z,
+        )
+        const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
+        payload.elbow = { pos: toUrdfPos(relPos) }
       }
     }
 
