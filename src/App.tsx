@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
@@ -19,14 +19,38 @@ function poseToPayload(pose: XRPose) {
   }
 }
 
-const AXIS_SIZE = 0.12
-const DOT_RADIUS = 0.012
+const AXIS_LEN = 0.1
+const SHAFT_R = 0.004
+const TIP_R = 0.009
+const TIP_LEN = 0.025
+const DOT_RADIUS = 0.014
+
+const AXES: { color: string; rotation: [number, number, number] }[] = [
+  { color: "#ff4444", rotation: [0, 0, -Math.PI / 2] },   // X — red
+  { color: "#44ff44", rotation: [0, 0, 0] },               // Y — green
+  { color: "#4488ff", rotation: [Math.PI / 2, 0, 0] },    // Z — blue
+]
+
+function Arrow({ color, rotation }: { color: string; rotation: [number, number, number] }) {
+  const shaftLen = AXIS_LEN - TIP_LEN
+  return (
+    <group rotation={rotation}>
+      <mesh position={[0, shaftLen / 2, 0]}>
+        <cylinderGeometry args={[SHAFT_R, SHAFT_R, shaftLen, 8]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+      <mesh position={[0, shaftLen + TIP_LEN / 2, 0]}>
+        <coneGeometry args={[TIP_R, TIP_LEN, 8]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+    </group>
+  )
+}
 
 function AxesMarker({ groupRef, color }: { groupRef: React.RefObject<THREE.Group | null>; color: string }) {
-  const axes = useMemo(() => new THREE.AxesHelper(AXIS_SIZE), [])
   return (
     <group ref={groupRef} visible={false}>
-      <primitive object={axes} />
+      {AXES.map((a) => <Arrow key={a.color} color={a.color} rotation={a.rotation} />)}
       <mesh>
         <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
         <meshBasicMaterial color={color} />
