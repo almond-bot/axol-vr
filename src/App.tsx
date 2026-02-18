@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { Html } from "@react-three/drei"
 import { createXRStore, XR } from "@react-three/xr"
+import * as THREE from "three"
 
 const store = createXRStore({ bodyTracking: true })
 const MAX_RETRIES = 3
@@ -16,6 +18,99 @@ function poseToPayload(pose: XRPose) {
     pos: { x: position.x, y: position.y, z: position.z },
     quat: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
   }
+}
+
+type PoseInfo = {
+  pos: { x: number; y: number; z: number }
+  euler: { x: number; y: number; z: number }
+} | null
+
+const RAD = 180 / Math.PI
+const _q = new THREE.Quaternion()
+const _e = new THREE.Euler()
+
+function quatToEuler(q: { x: number; y: number; z: number; w: number }) {
+  _q.set(q.x, q.y, q.z, q.w)
+  _e.setFromQuaternion(_q, "XYZ")
+  return { x: _e.x * RAD, y: _e.y * RAD, z: _e.z * RAD }
+}
+
+function PosePanel({ label, info, position }: { label: string; info: PoseInfo; position: [number, number, number] }) {
+  return (
+    <Html position={position} transform occlude={false} style={{ pointerEvents: "none" }}>
+      <div style={{
+        background: "rgba(0,0,0,0.75)",
+        color: "#fff",
+        fontFamily: "monospace",
+        fontSize: 11,
+        padding: "6px 10px",
+        borderRadius: 6,
+        border: "1px solid rgba(255,255,255,0.2)",
+        minWidth: 180,
+        whiteSpace: "nowrap",
+      }}>
+        <div style={{ fontWeight: "bold", marginBottom: 4, color: "#a5f3fc" }}>{label}</div>
+        {info ? (
+          <>
+            <div style={{ color: "#86efac" }}>pos</div>
+            <div>x {info.pos.x.toFixed(3)}</div>
+            <div>y {info.pos.y.toFixed(3)}</div>
+            <div>z {info.pos.z.toFixed(3)}</div>
+            <div style={{ color: "#fde68a", marginTop: 4 }}>rot (deg)</div>
+            <div>x {info.euler.x.toFixed(1)}</div>
+            <div>y {info.euler.y.toFixed(1)}</div>
+            <div>z {info.euler.z.toFixed(1)}</div>
+          </>
+        ) : (
+          <div style={{ opacity: 0.5 }}>no data</div>
+        )}
+      </div>
+    </Html>
+  )
+}
+
+function PoseDisplay() {
+  const { gl } = useThree()
+  const [upper, setUpper] = useState<PoseInfo>(null)
+  const [lower, setLower] = useState<PoseInfo>(null)
+  const [controller, setController] = useState<PoseInfo>(null)
+  const tickRef = useRef(0)
+
+  useFrame(() => {
+    const session = gl.xr.getSession()
+    if (!session) return
+    const frame = gl.xr.getFrame()
+    const refSpace = gl.xr.getReferenceSpace()
+    if (!frame || !refSpace) return
+
+    const leftSource = Array.from(session.inputSources).find(
+      (s: XRInputSource) => s.handedness === "left"
+    )
+
+    const body = (frame as XRFrame & { body?: XRBody }).body
+
+    function readPose(space: XRSpace): PoseInfo {
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) return null
+      const { position: p, orientation: o } = pose.transform
+      return { pos: { x: p.x, y: p.y, z: p.z }, euler: quatToEuler(o) }
+    }
+
+    tickRef.current += 1
+    if (tickRef.current % 6 !== 0) return
+
+    setUpper(body?.get("left-arm-upper" as XRBodyJoint) ? readPose(body!.get("left-arm-upper" as XRBodyJoint)!) : null)
+    setLower(body?.get("left-arm-lower" as XRBodyJoint) ? readPose(body!.get("left-arm-lower" as XRBodyJoint)!) : null)
+    setController(leftSource?.gripSpace ? readPose(leftSource.gripSpace) : null)
+  })
+
+  return (
+    <>
+      <PosePanel label="left-arm-upper" info={upper} position={[-0.6, 1.4, -1]} />
+      <PosePanel label="left-arm-lower" info={lower} position={[-0.6, 1.1, -1]} />
+      <PosePanel label="controller (L)" info={controller} position={[-0.6, 0.8, -1]} />
+    </>
+  )
 }
 
 function PoseSender() {
@@ -245,6 +340,7 @@ export default function App() {
       <Canvas>
         <XR store={store}>
           <PoseSender />
+          <PoseDisplay />
         </XR>
       </Canvas>
     </>
