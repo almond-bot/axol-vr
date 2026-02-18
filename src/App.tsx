@@ -21,26 +21,45 @@ function poseToPayload(pose: XRPose) {
 
 function PoseSender() {
   const { gl } = useThree()
+  const sendingEnabledRef = useRef(false)
+  const xButtonPrevRef = useRef(false)
+  const needsCalibrateRef = useRef(false)
 
   useFrame(() => {
     const session = gl.xr.getSession()
     if (!session) return
 
-    const ws = wsRef.current
-    if (!ws || ws.readyState !== WebSocket.OPEN) return
-
     const frame = gl.xr.getFrame()
     const refSpace = gl.xr.getReferenceSpace()
     if (!frame || !refSpace) return
 
-    const payload: Record<string, unknown> = {}
-
-    // Controller (left grip) pose
-    const inputSource = Array.from(session.inputSources).find(
+    const leftSource = Array.from(session.inputSources).find(
       (source: XRInputSource) => source.handedness === "left"
     )
-    if (inputSource?.gripSpace) {
-      const pose = frame.getPose(inputSource.gripSpace, refSpace)
+
+    // Detect X button press (button index 4 on left controller)
+    const xPressed = leftSource?.gamepad?.buttons[4]?.pressed ?? false
+    if (xPressed && !xButtonPrevRef.current) {
+      sendingEnabledRef.current = !sendingEnabledRef.current
+      if (sendingEnabledRef.current) needsCalibrateRef.current = true
+    }
+    xButtonPrevRef.current = xPressed
+
+    if (!sendingEnabledRef.current) return
+
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+
+    const payload: Record<string, unknown> = {}
+
+    if (needsCalibrateRef.current) {
+      payload.calibrate = true
+      needsCalibrateRef.current = false
+    }
+
+    // Controller (left grip) pose
+    if (leftSource?.gripSpace) {
+      const pose = frame.getPose(leftSource.gripSpace, refSpace)
       if (pose) payload.controller = poseToPayload(pose)
     }
 
