@@ -10,7 +10,7 @@ const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
 
-const SHOULDER_NODE = "left-shoulder" as XRBodyJoint
+const SHOULDER_NODE = "left-arm-upper" as XRBodyJoint
 const ELBOW_NODE = "left-arm-lower" as XRBodyJoint
 
 // WebXR → URDF (ROS REP-103) coordinate conversion:
