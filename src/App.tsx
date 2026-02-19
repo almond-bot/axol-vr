@@ -84,7 +84,7 @@ function PoseVisualizer() {
 
     applyPose(shoulderRef.current, body?.get(SHOULDER_NODE) ?? null)
     applyPose(elbowRef.current, body?.get(ELBOW_NODE) ?? null)
-    applyPose(controllerRef.current, leftSource?.gripSpace ?? null)
+    applyPose(controllerRef.current, leftSource?.targetRaySpace ?? null)
   })
 
   return (
@@ -155,8 +155,8 @@ function PoseSender() {
     }
 
     // Controller: position and orientation relative to shoulder, then → URDF
-    if (leftSource?.gripSpace) {
-      const pose = frame.getPose(leftSource.gripSpace, refSpace)
+    if (leftSource?.targetRaySpace) {
+      const pose = frame.getPose(leftSource.targetRaySpace, refSpace)
       if (pose) {
         const worldPos = new THREE.Vector3(
           pose.transform.position.x,
