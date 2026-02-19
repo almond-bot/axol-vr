@@ -171,7 +171,10 @@ function PoseSender() {
         )
         const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
         const relQuat = shoulderQuatInv.clone().multiply(worldQuat)
-        payload.controller = { pos: relPos, quat: relQuat }
+        payload.controller = {
+          pos: { x: relPos.x, y: relPos.y, z: relPos.z },
+          quat: { x: relQuat.x, y: relQuat.y, z: relQuat.z, w: relQuat.w },
+        }
       }
     }
 
@@ -186,7 +189,7 @@ function PoseSender() {
           pose.transform.position.z,
         )
         const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
-        payload.elbow = { pos: relPos }
+        payload.elbow = { pos: { x: relPos.x, y: relPos.y, z: relPos.z } }
       }
     }
 
