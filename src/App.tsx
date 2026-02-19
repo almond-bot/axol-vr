@@ -13,18 +13,6 @@ const wsRef = { current: null as WebSocket | null }
 const SHOULDER_NODE = "left-arm-upper" as XRBodyJoint
 const ELBOW_NODE = "left-arm-lower" as XRBodyJoint
 
-// WebXR → URDF (ROS REP-103) coordinate conversion:
-//   URDF X (Forward) = WebXR −Z
-//   URDF Y (Left)    = WebXR −X
-//   URDF Z (Up)      = WebXR  Y
-function toUrdfPos(v: THREE.Vector3): { x: number; y: number; z: number } {
-  return { x: -v.z, y: -v.x, z: v.y }
-}
-
-function toUrdfQuat(q: THREE.Quaternion): { x: number; y: number; z: number; w: number } {
-  return { x: -q.z, y: -q.x, z: q.y, w: q.w }
-}
-
 const AXIS_LEN = 0.1
 const SHAFT_R = 0.004
 const TIP_R = 0.009
@@ -183,7 +171,7 @@ function PoseSender() {
         )
         const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
         const relQuat = shoulderQuatInv.clone().multiply(worldQuat)
-        payload.controller = { pos: toUrdfPos(relPos), quat: toUrdfQuat(relQuat) }
+        payload.controller = { pos: relPos, quat: relQuat }
       }
     }
 
@@ -198,7 +186,7 @@ function PoseSender() {
           pose.transform.position.z,
         )
         const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
-        payload.elbow = { pos: toUrdfPos(relPos) }
+        payload.elbow = { pos: relPos }
       }
     }
 
