@@ -20,9 +20,9 @@ const TIP_LEN = 0.025
 const DOT_RADIUS = 0.014
 
 const AXES: { color: string; rotation: [number, number, number] }[] = [
-  { color: "#ff4444", rotation: [0, 0, -Math.PI / 2] },   // X — red
-  { color: "#44ff44", rotation: [0, 0, 0] },               // Y — green
-  { color: "#4488ff", rotation: [Math.PI / 2, 0, 0] },    // Z — blue
+  { color: "#FF0000", rotation: [0, 0, -Math.PI / 2] },   // X — red
+  { color: "#00FF00", rotation: [0, 0, 0] },               // Y — green
+  { color: "#0000FF", rotation: [Math.PI / 2, 0, 0] },    // Z — blue
 ]
 
 function Arrow({ color, rotation }: { color: string; rotation: [number, number, number] }) {
@@ -41,10 +41,10 @@ function Arrow({ color, rotation }: { color: string; rotation: [number, number, 
   )
 }
 
-function AxesMarker({ groupRef, color }: { groupRef: React.RefObject<THREE.Group | null>; color: string }) {
+function AxesMarker({ groupRef, color, showAxes = true }: { groupRef: React.RefObject<THREE.Group | null>; color: string; showAxes?: boolean }) {
   return (
     <group ref={groupRef} visible={false}>
-      {AXES.map((a) => <Arrow key={a.color} color={a.color} rotation={a.rotation} />)}
+      {showAxes && AXES.map((a) => <Arrow key={a.color} color={a.color} rotation={a.rotation} />)}
       <mesh>
         <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
         <meshBasicMaterial color={color} />
@@ -89,9 +89,9 @@ function PoseVisualizer() {
 
   return (
     <>
-      <AxesMarker groupRef={shoulderRef} color="#c084fc" />
-      <AxesMarker groupRef={elbowRef} color="#34d399" />
-      <AxesMarker groupRef={controllerRef} color="#60a5fa" />
+      <AxesMarker groupRef={shoulderRef} color="#0000FF" />
+      <AxesMarker groupRef={elbowRef} color="#00FF00" showAxes={false} />
+      <AxesMarker groupRef={controllerRef} color="#FF0000" />
     </>
   )
 }
