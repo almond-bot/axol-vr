@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
-// @pmndrs/xr already requests local-floor by default
+// @pmndrs/xr already requests local-floor and body-tracking by default
 const store = createXRStore()
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
@@ -54,6 +54,8 @@ function PoseVisualizer() {
   const { gl } = useThree()
   const leftRef = useRef<THREE.Group>(null)
   const rightRef = useRef<THREE.Group>(null)
+  const lShoulderRef = useRef<THREE.Group>(null)
+  const rShoulderRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -78,18 +80,27 @@ function PoseVisualizer() {
 
     applyPose(leftRef.current, leftSource?.targetRaySpace ?? null)
     applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
+
+    type XRBody = { joints: Record<string, XRSpace> }
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    applyPose(lShoulderRef.current, body?.joints["left-shoulder"])
+    applyPose(rShoulderRef.current, body?.joints["right-shoulder"])
   })
 
   return (
     <>
       <AxesMarker groupRef={leftRef} color="#FF0000" />
-      <AxesMarker groupRef={rightRef} color="#0000FF" />
+      <AxesMarker groupRef={rightRef} color="#FF0000" />
+      <AxesMarker groupRef={lShoulderRef} color="#0000FF" />
+      <AxesMarker groupRef={rShoulderRef} color="#0000FF" />
     </>
   )
 }
 
 function PoseSender() {
   const { gl } = useThree()
+  const modeRef = useRef<"absolute" | "relative">("absolute")
+  const prevARef = useRef(false)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -105,6 +116,13 @@ function PoseSender() {
     const leftSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "left")
     const rightSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "right")
 
+    // A button = buttons[4] on right controller; toggle mode on press edge
+    const aDown = rightSource?.gamepad?.buttons[4]?.pressed ?? false
+    if (aDown && !prevARef.current) {
+      modeRef.current = modeRef.current === "absolute" ? "relative" : "absolute"
+    }
+    prevARef.current = aDown
+
     function getRawPose(space: XRSpace | null | undefined) {
       if (!space) return null
       const pose = frame.getPose(space, refSpace!)
@@ -115,12 +133,14 @@ function PoseSender() {
 
     const leftPose = getRawPose(leftSource?.targetRaySpace)
     const rightPose = getRawPose(rightSource?.targetRaySpace)
-    const viewerPose = frame.getViewerPose(refSpace)
 
-    if (!leftPose || !rightPose || !viewerPose) return
+    // Shoulder joints from WebXR body tracking (Quest body-tracking API)
+    type XRBody = { joints: Record<string, XRSpace> }
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    const lShoulderPose = getRawPose(body?.joints["left-shoulder"])
+    const rShoulderPose = getRawPose(body?.joints["right-shoulder"])
 
-    const { position: p, orientation: o } = viewerPose.transform
-    const headPose = { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
+    if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
     // Side trigger (squeeze) = button index 1; fully pressed when value >= 1.0
     const lGrip = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
@@ -129,10 +149,11 @@ function PoseSender() {
     ws.send(JSON.stringify({
       left: leftPose,
       right: rightPose,
-      head: headPose,
+      l_shoulder: lShoulderPose,
+      r_shoulder: rShoulderPose,
       l_grip: lGrip,
       r_grip: rGrip,
-      t: Date.now(),
+      mode: modeRef.current,
     }))
   })
 
