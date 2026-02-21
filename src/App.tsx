@@ -12,6 +12,10 @@ const wsRef = { current: null as WebSocket | null }
 const L_SHOULDER_JOINT = "left-scapula" as XRBodyJoint
 const R_SHOULDER_JOINT = "right-scapula" as XRBodyJoint
 
+// Right scapula frame has Y and Z flipped vs left — correct with Rx(180°)
+// q = (sin(π/2), 0, 0, cos(π/2)) = (x:1, y:0, z:0, w:0)
+const R_SCAPULA_CORRECTION = new THREE.Quaternion(1, 0, 0, 0)
+
 const AXIS_LEN = 0.1
 const SHAFT_R = 0.004
 const TIP_R = 0.009
@@ -86,6 +90,9 @@ function PoseVisualizer() {
     const body = (frame as XRFrame & { body?: XRBody }).body
     applyPose(lShoulderRef.current, body?.get(L_SHOULDER_JOINT))
     applyPose(rShoulderRef.current, body?.get(R_SHOULDER_JOINT))
+    if (rShoulderRef.current?.visible) {
+      rShoulderRef.current.quaternion.multiply(R_SCAPULA_CORRECTION)
+    }
   })
 
   return (
@@ -138,7 +145,13 @@ function PoseSender() {
     // Shoulder joints from WebXR body tracking (Quest body-tracking API)
     const body = (frame as XRFrame & { body?: XRBody }).body
     const lShoulderPose = getRawPose(body?.get(L_SHOULDER_JOINT))
-    const rShoulderPose = getRawPose(body?.get(R_SHOULDER_JOINT))
+    const rShoulderRaw = getRawPose(body?.get(R_SHOULDER_JOINT))
+    // Apply Rx(180°) correction so right scapula frame matches left
+    const rShoulderPose = rShoulderRaw && (() => {
+      const q = new THREE.Quaternion(rShoulderRaw.qx, rShoulderRaw.qy, rShoulderRaw.qz, rShoulderRaw.qw)
+      q.multiply(R_SCAPULA_CORRECTION)
+      return { ...rShoulderRaw, qx: q.x, qy: q.y, qz: q.z, qw: q.w }
+    })()
 
     if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
