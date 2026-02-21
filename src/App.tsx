@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
-const store = createXRStore({ customSessionInit: { optionalFeatures: ["body-tracking"] } })
+const store = createXRStore({ bodyTracking: true })
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
@@ -80,10 +80,9 @@ function PoseVisualizer() {
     applyPose(leftRef.current, leftSource?.targetRaySpace ?? null)
     applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
 
-    type XRBody = { joints: Record<string, XRSpace> }
     const body = (frame as XRFrame & { body?: XRBody }).body
-    applyPose(lShoulderRef.current, body?.joints["left-shoulder"])
-    applyPose(rShoulderRef.current, body?.joints["right-shoulder"])
+    applyPose(lShoulderRef.current, body?.get("left-shoulder" as XRBodyJoint))
+    applyPose(rShoulderRef.current, body?.get("right-shoulder" as XRBodyJoint))
   })
 
   return (
@@ -134,10 +133,9 @@ function PoseSender() {
     const rightPose = getRawPose(rightSource?.targetRaySpace)
 
     // Shoulder joints from WebXR body tracking (Quest body-tracking API)
-    type XRBody = { joints: Record<string, XRSpace> }
     const body = (frame as XRFrame & { body?: XRBody }).body
-    const lShoulderPose = getRawPose(body?.joints["left-shoulder"])
-    const rShoulderPose = getRawPose(body?.joints["right-shoulder"])
+    const lShoulderPose = getRawPose(body?.get("left-shoulder" as XRBodyJoint))
+    const rShoulderPose = getRawPose(body?.get("right-shoulder" as XRBodyJoint))
 
     if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
