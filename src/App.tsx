@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
-const store = createXRStore({ bodyTracking: true })
+const store = createXRStore({ customSessionInit: { optionalFeatures: ["body-tracking"] } })
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
