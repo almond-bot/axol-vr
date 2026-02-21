@@ -4,14 +4,11 @@ import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
 // @pmndrs/xr already requests local-floor by default
-const store = createXRStore({ bodyTracking: true })
+const store = createXRStore()
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
-
-const SHOULDER_NODE = "left-scapula" as XRBodyJoint
-const ELBOW_NODE = "left-arm-lower" as XRBodyJoint
 
 const AXIS_LEN = 0.1
 const SHAFT_R = 0.004
@@ -55,9 +52,8 @@ function AxesMarker({ groupRef, color, showAxes = true }: { groupRef: React.RefO
 
 function PoseVisualizer() {
   const { gl } = useThree()
-  const shoulderRef = useRef<THREE.Group>(null)
-  const elbowRef = useRef<THREE.Group>(null)
-  const controllerRef = useRef<THREE.Group>(null)
+  const leftRef = useRef<THREE.Group>(null)
+  const rightRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -65,11 +61,6 @@ function PoseVisualizer() {
     const frame = gl.xr.getFrame()
     const refSpace = gl.xr.getReferenceSpace()
     if (!frame || !refSpace) return
-
-    const leftSource = Array.from(session.inputSources).find(
-      (s: XRInputSource) => s.handedness === "left"
-    )
-    const body = (frame as XRFrame & { body?: XRBody }).body
 
     function applyPose(group: THREE.Group | null, space: XRSpace | null | undefined) {
       if (!group) return
@@ -82,25 +73,23 @@ function PoseVisualizer() {
       group.visible = true
     }
 
-    applyPose(shoulderRef.current, body?.get(SHOULDER_NODE) ?? null)
-    applyPose(elbowRef.current, body?.get(ELBOW_NODE) ?? null)
-    applyPose(controllerRef.current, leftSource?.targetRaySpace ?? null)
+    const leftSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "left")
+    const rightSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "right")
+
+    applyPose(leftRef.current, leftSource?.targetRaySpace ?? null)
+    applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
   })
 
   return (
     <>
-      <AxesMarker groupRef={shoulderRef} color="#0000FF" />
-      <AxesMarker groupRef={elbowRef} color="#00FF00" showAxes={false} />
-      <AxesMarker groupRef={controllerRef} color="#FF0000" />
+      <AxesMarker groupRef={leftRef} color="#FF0000" />
+      <AxesMarker groupRef={rightRef} color="#0000FF" />
     </>
   )
 }
 
 function PoseSender() {
   const { gl } = useThree()
-  const sendingEnabledRef = useRef(false)
-  const xButtonPrevRef = useRef(false)
-  const needsCalibrateRef = useRef(false)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -110,92 +99,41 @@ function PoseSender() {
     const refSpace = gl.xr.getReferenceSpace()
     if (!frame || !refSpace) return
 
-    const leftSource = Array.from(session.inputSources).find(
-      (source: XRInputSource) => source.handedness === "left"
-    )
-
-    // Detect X button press (button index 4 on left controller)
-    const xPressed = leftSource?.gamepad?.buttons[4]?.pressed ?? false
-    if (xPressed && !xButtonPrevRef.current) {
-      sendingEnabledRef.current = !sendingEnabledRef.current
-      if (sendingEnabledRef.current) needsCalibrateRef.current = true
-    }
-    xButtonPrevRef.current = xPressed
-
-    if (!sendingEnabledRef.current) return
-
     const ws = wsRef.current
     if (!ws || ws.readyState !== WebSocket.OPEN) return
 
-    // Require shoulder as the anchor for all relative calculations
-    const body = (frame as XRFrame & { body?: XRBody }).body
-    const shoulderSpace = body?.get(SHOULDER_NODE)
-    if (!shoulderSpace) return
-    const shoulderPose = frame.getPose(shoulderSpace, refSpace)
-    if (!shoulderPose) return
+    const leftSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "left")
+    const rightSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "right")
 
-    const shoulderPos = new THREE.Vector3(
-      shoulderPose.transform.position.x,
-      shoulderPose.transform.position.y,
-      shoulderPose.transform.position.z,
-    )
-    const shoulderQuat = new THREE.Quaternion(
-      shoulderPose.transform.orientation.x,
-      shoulderPose.transform.orientation.y,
-      shoulderPose.transform.orientation.z,
-      shoulderPose.transform.orientation.w,
-    )
-    const shoulderQuatInv = shoulderQuat.clone().invert()
-
-    const payload: Record<string, unknown> = {}
-
-    if (needsCalibrateRef.current) {
-      payload.calibrate = true
-      needsCalibrateRef.current = false
+    function getRawPose(space: XRSpace | null | undefined) {
+      if (!space) return null
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) return null
+      const { position: p, orientation: o } = pose.transform
+      return { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
     }
 
-    // Controller: position and orientation relative to shoulder, then → URDF
-    if (leftSource?.targetRaySpace) {
-      const pose = frame.getPose(leftSource.targetRaySpace, refSpace)
-      if (pose) {
-        const worldPos = new THREE.Vector3(
-          pose.transform.position.x,
-          pose.transform.position.y,
-          pose.transform.position.z,
-        )
-        const worldQuat = new THREE.Quaternion(
-          pose.transform.orientation.x,
-          pose.transform.orientation.y,
-          pose.transform.orientation.z,
-          pose.transform.orientation.w,
-        )
-        const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
-        const relQuat = shoulderQuatInv.clone().multiply(worldQuat)
-        payload.controller = {
-          pos: { x: relPos.x, y: relPos.y, z: relPos.z },
-          quat: { x: relQuat.x, y: relQuat.y, z: relQuat.z, w: relQuat.w },
-        }
-      }
-    }
+    const leftPose = getRawPose(leftSource?.targetRaySpace)
+    const rightPose = getRawPose(rightSource?.targetRaySpace)
+    const viewerPose = frame.getViewerPose(refSpace)
 
-    // Elbow: position only relative to shoulder, then → URDF (quat ignored by IK solver)
-    const elbowSpace = body?.get(ELBOW_NODE)
-    if (elbowSpace) {
-      const pose = frame.getPose(elbowSpace, refSpace)
-      if (pose) {
-        const worldPos = new THREE.Vector3(
-          pose.transform.position.x,
-          pose.transform.position.y,
-          pose.transform.position.z,
-        )
-        const relPos = worldPos.sub(shoulderPos).applyQuaternion(shoulderQuatInv)
-        payload.elbow = { pos: { x: relPos.x, y: relPos.y, z: relPos.z } }
-      }
-    }
+    if (!leftPose || !rightPose || !viewerPose) return
 
-    if (Object.keys(payload).length > 0) {
-      ws.send(JSON.stringify(payload))
-    }
+    const { position: p, orientation: o } = viewerPose.transform
+    const headPose = { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
+
+    // Side trigger (squeeze) = button index 1; fully pressed when value >= 1.0
+    const lGrip = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
+    const rGrip = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
+
+    ws.send(JSON.stringify({
+      left: leftPose,
+      right: rightPose,
+      head: headPose,
+      l_grip: lGrip,
+      r_grip: rGrip,
+      t: Date.now(),
+    }))
   })
 
   return null
