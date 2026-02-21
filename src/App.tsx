@@ -9,6 +9,9 @@ const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
 
+const L_SHOULDER_JOINT = "left-scapula" as XRBodyJoint
+const R_SHOULDER_JOINT = "right-scapula" as XRBodyJoint
+
 const AXIS_LEN = 0.1
 const SHAFT_R = 0.004
 const TIP_R = 0.009
@@ -81,8 +84,8 @@ function PoseVisualizer() {
     applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
 
     const body = (frame as XRFrame & { body?: XRBody }).body
-    applyPose(lShoulderRef.current, body?.get("left-shoulder" as XRBodyJoint))
-    applyPose(rShoulderRef.current, body?.get("right-shoulder" as XRBodyJoint))
+    applyPose(lShoulderRef.current, body?.get(L_SHOULDER_JOINT))
+    applyPose(rShoulderRef.current, body?.get(R_SHOULDER_JOINT))
   })
 
   return (
@@ -134,8 +137,8 @@ function PoseSender() {
 
     // Shoulder joints from WebXR body tracking (Quest body-tracking API)
     const body = (frame as XRFrame & { body?: XRBody }).body
-    const lShoulderPose = getRawPose(body?.get("left-shoulder" as XRBodyJoint))
-    const rShoulderPose = getRawPose(body?.get("right-shoulder" as XRBodyJoint))
+    const lShoulderPose = getRawPose(body?.get(L_SHOULDER_JOINT))
+    const rShoulderPose = getRawPose(body?.get(R_SHOULDER_JOINT))
 
     if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
