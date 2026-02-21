@@ -3,8 +3,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
-// @pmndrs/xr already requests local-floor and body-tracking by default
-const store = createXRStore()
+const store = createXRStore({ bodyTracking: true })
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
