@@ -142,6 +142,15 @@ function PoseSender() {
     const leftPose = getRawPose(leftSource?.targetRaySpace)
     const rightPose = getRawPose(rightSource?.targetRaySpace)
 
+    // Head pose from viewer (HMD)
+    const viewerPose = frame.getViewerPose(refSpace)
+    const headPose = viewerPose
+      ? (() => {
+          const { position: p, orientation: o } = viewerPose.transform
+          return { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
+        })()
+      : null
+
     // Shoulder joints from WebXR body tracking (Quest body-tracking API)
     const body = (frame as XRFrame & { body?: XRBody }).body
     const lShoulderPose = getRawPose(body?.get(L_SHOULDER_JOINT))
@@ -160,6 +169,7 @@ function PoseSender() {
     const rGrip = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
 
     ws.send(JSON.stringify({
+      head: headPose,
       left: leftPose,
       right: rightPose,
       l_shoulder: lShoulderPose,
