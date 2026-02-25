@@ -195,7 +195,7 @@ export default function App() {
 
   const handleConnect = () => {
     localStorage.setItem("wsHostname", hostname)
-    const url = `wss://${hostname}:8000/ws`
+    const url = `wss://${hostname}:8001/ws`
     retryCountRef.current = 0
     setStatus("connecting")
     setWsUrl(url)
