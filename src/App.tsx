@@ -107,7 +107,7 @@ function PoseVisualizer() {
 
 function PoseSender() {
   const { gl } = useThree()
-  const modeRef = useRef<"absolute" | "relative">("absolute")
+  const modeRef = useRef<"absolute" | "relative">("relative")
   const prevARef = useRef(false)
 
   useFrame(() => {
