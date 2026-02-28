@@ -164,9 +164,16 @@ function PoseSender() {
 
     if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
-    // Side trigger (squeeze) = button index 1; fully pressed when value >= 1.0
-    const lGrip = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
-    const rGrip = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
+    // Rear trigger (index finger) = button 0; side squeeze = button 1 (Quest Touch)
+    const lRearTrigger = leftSource?.gamepad?.buttons[0]?.value ?? 0
+    const rRearTrigger = rightSource?.gamepad?.buttons[0]?.value ?? 0
+    const lSqueeze = leftSource?.gamepad?.buttons[1]?.value ?? 0
+    const rSqueeze = rightSource?.gamepad?.buttons[1]?.value ?? 0
+    const lLock = lSqueeze >= 1.0
+    const rLock = rSqueeze >= 1.0
+    // Grip from rear trigger: 1 when not pressed, 0 when fully pressed, linear in between
+    const lGrip = 1 - lRearTrigger
+    const rGrip = 1 - rRearTrigger
 
     ws.send(JSON.stringify({
       head: headPose,
@@ -174,6 +181,8 @@ function PoseSender() {
       right: rightPose,
       l_shoulder: lShoulderPose,
       r_shoulder: rShoulderPose,
+      l_lock: lLock,
+      r_lock: rLock,
       l_grip: lGrip,
       r_grip: rGrip,
       mode: modeRef.current,
