@@ -11,6 +11,8 @@ const wsRef = { current: null as WebSocket | null }
 
 const L_SHOULDER_JOINT = "left-scapula" as XRBodyJoint
 const R_SHOULDER_JOINT = "right-scapula" as XRBodyJoint
+const L_ELBOW_JOINT = "left-arm-lower" as XRBodyJoint
+const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
 
 // Right scapula frame has Y and Z flipped vs left — correct with Rx(180°)
 // q = (sin(π/2), 0, 0, cos(π/2)) = (x:1, y:0, z:0, w:0)
@@ -62,6 +64,8 @@ function PoseVisualizer() {
   const rightRef = useRef<THREE.Group>(null)
   const lShoulderRef = useRef<THREE.Group>(null)
   const rShoulderRef = useRef<THREE.Group>(null)
+  const lElbowRef = useRef<THREE.Group>(null)
+  const rElbowRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -81,6 +85,16 @@ function PoseVisualizer() {
       group.visible = true
     }
 
+    function applyPositionOnly(group: THREE.Group | null, space: XRSpace | null | undefined) {
+      if (!group) return
+      if (!space) { group.visible = false; return }
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) { group.visible = false; return }
+      const { position: p } = pose.transform
+      group.position.set(p.x, p.y, p.z)
+      group.visible = true
+    }
+
     const leftSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "left")
     const rightSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "right")
 
@@ -93,6 +107,8 @@ function PoseVisualizer() {
     if (rShoulderRef.current?.visible) {
       rShoulderRef.current.quaternion.multiply(R_SCAPULA_CORRECTION)
     }
+    applyPositionOnly(lElbowRef.current, body?.get(L_ELBOW_JOINT))
+    applyPositionOnly(rElbowRef.current, body?.get(R_ELBOW_JOINT))
   })
 
   return (
@@ -101,6 +117,8 @@ function PoseVisualizer() {
       <AxesMarker groupRef={rightRef} color="#FF0000" />
       <AxesMarker groupRef={lShoulderRef} color="#0000FF" />
       <AxesMarker groupRef={rShoulderRef} color="#0000FF" />
+      <AxesMarker groupRef={lElbowRef} color="#00FF00" showAxes={false} />
+      <AxesMarker groupRef={rElbowRef} color="#00FF00" showAxes={false} />
     </>
   )
 }
@@ -139,6 +157,14 @@ function PoseSender() {
       return { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
     }
 
+    function getPositionOnly(space: XRSpace | null | undefined): { x: number; y: number; z: number } | null {
+      if (!space) return null
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) return null
+      const { position: p } = pose.transform
+      return { x: p.x, y: p.y, z: p.z }
+    }
+
     const leftPose = getRawPose(leftSource?.targetRaySpace)
     const rightPose = getRawPose(rightSource?.targetRaySpace)
 
@@ -162,6 +188,9 @@ function PoseSender() {
       return { ...rShoulderRaw, qx: q.x, qy: q.y, qz: q.z, qw: q.w }
     })()
 
+    const lElbowPos = getPositionOnly(body?.get(L_ELBOW_JOINT))
+    const rElbowPos = getPositionOnly(body?.get(R_ELBOW_JOINT))
+
     if (!leftPose || !rightPose || !lShoulderPose || !rShoulderPose) return
 
     // Rear trigger (index finger) = button 0; side squeeze = button 1 (Quest Touch)
@@ -181,6 +210,8 @@ function PoseSender() {
       right: rightPose,
       l_shoulder: lShoulderPose,
       r_shoulder: rShoulderPose,
+      l_elbow: lElbowPos,
+      r_elbow: rElbowPos,
       l_lock: lLock,
       r_lock: rLock,
       l_grip: lGrip,
