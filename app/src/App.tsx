@@ -88,7 +88,7 @@ function PoseVisualizer() {
       group.visible = true
     }
 
-    function applyPositionOnly(group: THREE.Group | null, space: XRSpace | null | undefined) {
+    function applyPosition(group: THREE.Group | null, space: XRSpace | null | undefined) {
       if (!group) return
       if (!space) {
         group.visible = false
@@ -115,8 +115,8 @@ function PoseVisualizer() {
     applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
 
     const body = (frame as XRFrame & { body?: XRBody }).body
-    applyPositionOnly(lElbowRef.current, body?.get(L_ELBOW_JOINT))
-    applyPositionOnly(rElbowRef.current, body?.get(R_ELBOW_JOINT))
+    applyPosition(lElbowRef.current, body?.get(L_ELBOW_JOINT))
+    applyPosition(rElbowRef.current, body?.get(R_ELBOW_JOINT))
   })
 
   return (
@@ -171,6 +171,7 @@ function ExitButton() {
           transparent
           opacity={0.85}
           depthTest={false}
+          side={THREE.DoubleSide}
         />
       </mesh>
       <Text
