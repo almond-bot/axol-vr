@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build --workspace=packages/axol-vr-client && npm run build --workspace=apps/axol-vr-app",
-  "outputDirectory": "apps/axol-vr-app/dist",
+  "buildCommand": "npm run build --workspace=packages/axol-vr-client && npm run build --workspace=app",
+  "outputDirectory": "app/dist",
   "installCommand": "rm -f package-lock.json && npm install"
 }

@@ -2,7 +2,7 @@
   "name": "almond-axol-vr",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "app",
     "packages/*"
   ],
   "devDependencies": {
