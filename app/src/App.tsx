@@ -173,7 +173,7 @@ function ExitButton() {
         anchorX="center"
         anchorY="middle"
         renderOrder={1000}
-        depthTest={false}
+        material-depthTest={false}
       >
         Exit
       </Text>
@@ -203,7 +203,7 @@ function StateDisplay({ state }: { state: AxolState }) {
       anchorX="right"
       anchorY="top"
       renderOrder={999}
-      depthTest={false}
+      material-depthTest={false}
     >
       {label}
     </Text>
