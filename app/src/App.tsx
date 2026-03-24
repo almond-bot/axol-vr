@@ -158,7 +158,7 @@ function ExitButton() {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <group position={[-0.18, 0.1, -0.5]}>
+    <group position={[0, 0, -0.5]}>
       <mesh
         renderOrder={999}
         onPointerOver={() => setHovered(true)}
