@@ -161,7 +161,7 @@ function PoseSender() {
     const reset = rightSource?.gamepad?.buttons[4]?.pressed ?? false
 
     ws.send(JSON.stringify({
-      left
+      left,
       right,
       left_e,
       right_e,
