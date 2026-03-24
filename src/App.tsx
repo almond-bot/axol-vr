@@ -145,14 +145,16 @@ function PoseSender() {
       return { x: p.x, y: p.y, z: p.z }
     }
 
-    const left = getRawPose(leftSource?.targetRaySpace)
-    const right = getRawPose(rightSource?.targetRaySpace)
+    const l_ee = getRawPose(leftSource?.targetRaySpace)
+    const r_ee = getRawPose(rightSource?.targetRaySpace)
 
-    if (!left || !right) return
+    if (!l_ee || !r_ee) return
 
     const body = (frame as XRFrame & { body?: XRBody }).body
-    const left_e = getPositionOnly(body?.get(L_ELBOW_JOINT))
-    const right_e = getPositionOnly(body?.get(R_ELBOW_JOINT))
+    const l_elbow = getPositionOnly(body?.get(L_ELBOW_JOINT))
+    const r_elbow = getPositionOnly(body?.get(R_ELBOW_JOINT))
+
+    if (!l_elbow || !r_elbow) return
 
     const l_grip = 1 - (leftSource?.gamepad?.buttons[0]?.value ?? 0)
     const r_grip = 1 - (rightSource?.gamepad?.buttons[0]?.value ?? 0)
@@ -161,10 +163,10 @@ function PoseSender() {
     const reset = rightSource?.gamepad?.buttons[4]?.pressed ?? false
 
     ws.send(JSON.stringify({
-      left,
-      right,
-      left_e,
-      right_e,
+      l_ee,
+      r_ee,
+      l_elbow,
+      r_elbow,
       l_lock,
       r_lock,
       l_grip,
