@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Text } from "@react-three/drei"
-import { createXRStore, XR } from "@react-three/xr"
+import { createXRStore, XR, useXR } from "@react-three/xr"
 import * as THREE from "three"
 import {
   AxolConnectionStatus,
@@ -140,6 +140,7 @@ function PoseVisualizer() {
 }
 
 function XRHud({ children }: { children: ReactNode }) {
+  const session = useXR((s) => s.session)
   const groupRef = useRef<THREE.Group>(null)
 
   useFrame(({ camera, gl }) => {
@@ -148,6 +149,8 @@ function XRHud({ children }: { children: ReactNode }) {
     groupRef.current.position.copy(activeCam.position)
     groupRef.current.quaternion.copy(activeCam.quaternion)
   })
+
+  if (!session) return null
 
   return <group ref={groupRef}>{children}</group>
 }
