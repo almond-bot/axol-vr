@@ -1,5 +1,11 @@
 import type { QuaternionLike, Vector3Like } from "three"
 
+export enum AxolState {
+  Teleop = "teleop",
+  DataCollection = "data_collection",
+  Recording = "recording",
+}
+
 export enum AxolConnectionStatus {
   Idle = "idle",
   Connecting = "connecting",
@@ -18,4 +24,5 @@ export type AxolPoseData = {
   l_grip: number
   r_grip: number
   reset: boolean
+  state: AxolState
 }

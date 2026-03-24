@@ -1,11 +1,25 @@
 import type { RefObject } from "react"
+import { useRef } from "react"
 import { useFrame, useThree } from "@react-three/fiber"
+import { AxolState } from "./types"
 
 const L_ELBOW_JOINT = "left-arm-lower" as XRBodyJoint
 const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
 
-export function AxolVRClient({ wsRef }: { wsRef: RefObject<WebSocket | null> }) {
+export function AxolVRClient({
+  wsRef,
+  onStateChange,
+}: {
+  wsRef: RefObject<WebSocket | null>
+  onStateChange?: (state: AxolState) => void
+}) {
   const { gl } = useThree()
+
+  const stateRef = useRef<AxolState>(AxolState.Teleop)
+  const prevXRef = useRef(false)
+  const prevYRef = useRef(false)
+  const prevARef = useRef(false)
+  const recordingPendingAtRef = useRef<number | null>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -15,15 +29,68 @@ export function AxolVRClient({ wsRef }: { wsRef: RefObject<WebSocket | null> }) 
     const refSpace = gl.xr.getReferenceSpace()
     if (!frame || !refSpace) return
 
-    const ws = wsRef.current
-    if (!ws || ws.readyState !== WebSocket.OPEN) return
-
     const leftSource = Array.from(session.inputSources).find(
       (s: XRInputSource) => s.handedness === "left"
     )
     const rightSource = Array.from(session.inputSources).find(
       (s: XRInputSource) => s.handedness === "right"
     )
+
+    const xPressed = leftSource?.gamepad?.buttons[4]?.pressed ?? false
+    const yPressed = leftSource?.gamepad?.buttons[5]?.pressed ?? false
+    const aPressed = rightSource?.gamepad?.buttons[4]?.pressed ?? false
+
+    const xEdge = xPressed && !prevXRef.current
+    const yEdge = yPressed && !prevYRef.current
+    const aEdge = aPressed && !prevARef.current
+
+    prevXRef.current = xPressed
+    prevYRef.current = yPressed
+    prevARef.current = aPressed
+
+    const state = stateRef.current
+
+    function setState(next: AxolState) {
+      stateRef.current = next
+      onStateChange?.(next)
+    }
+
+    // X — reset; also cancels recording
+    let reset = false
+    if (xEdge) {
+      reset = true
+      if (state === AxolState.Recording) {
+        setState(AxolState.DataCollection)
+        recordingPendingAtRef.current = null
+      }
+    }
+
+    // Y — swap teleop ↔ data_collection (disabled when recording)
+    if (yEdge && state !== AxolState.Recording) {
+      setState(state === AxolState.Teleop ? AxolState.DataCollection : AxolState.Teleop)
+    }
+
+    // A — start episode (3s delay) or stop recording immediately
+    if (aEdge) {
+      if (state === AxolState.Recording) {
+        setState(AxolState.DataCollection)
+        recordingPendingAtRef.current = null
+      } else if (state === AxolState.DataCollection && recordingPendingAtRef.current === null) {
+        recordingPendingAtRef.current = Date.now()
+      }
+    }
+
+    // Promote pending → recording after 3s
+    if (
+      recordingPendingAtRef.current !== null &&
+      Date.now() - recordingPendingAtRef.current >= 3000
+    ) {
+      setState(AxolState.Recording)
+      recordingPendingAtRef.current = null
+    }
+
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
 
     function getPose(space: XRSpace | null | undefined) {
       if (!space) return null
@@ -59,9 +126,21 @@ export function AxolVRClient({ wsRef }: { wsRef: RefObject<WebSocket | null> }) 
     const r_grip = 1 - (rightSource?.gamepad?.buttons[0]?.value ?? 0)
     const l_lock = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
     const r_lock = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
-    const reset = rightSource?.gamepad?.buttons[4]?.pressed ?? false
 
-    ws.send(JSON.stringify({ l_ee, r_ee, l_elbow, r_elbow, l_lock, r_lock, l_grip, r_grip, reset }))
+    ws.send(
+      JSON.stringify({
+        l_ee,
+        r_ee,
+        l_elbow,
+        r_elbow,
+        l_lock,
+        r_lock,
+        l_grip,
+        r_grip,
+        reset,
+        state: stateRef.current,
+      })
+    )
   })
 
   return null

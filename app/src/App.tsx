@@ -1,8 +1,14 @@
 import { useRef, useState } from "react"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { Canvas, createPortal, useFrame, useThree } from "@react-three/fiber"
+import { Text } from "@react-three/drei"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
-import { AxolConnectionStatus, AxolVRClient, useAxolVRClient } from "@almond/axol-vr-client"
+import {
+  AxolConnectionStatus,
+  AxolVRClient,
+  AxolState,
+  useAxolVRClient,
+} from "@almond/axol-vr-client"
 
 const store = createXRStore({ handTracking: false, bodyTracking: true })
 
@@ -133,8 +139,37 @@ function PoseVisualizer() {
   )
 }
 
+function StateDisplay({ state }: { state: AxolState }) {
+  const { camera } = useThree()
+  const color =
+    state === AxolState.Recording
+      ? "#f87171"
+      : state === AxolState.DataCollection
+        ? "#60a5fa"
+        : "#9ca3af"
+  const label =
+    state === AxolState.Recording
+      ? "● Recording"
+      : state === AxolState.DataCollection
+        ? "● Data Collection"
+        : "● Teleop"
+  return createPortal(
+    <Text
+      position={[0, -0.08, -0.5]}
+      fontSize={0.025}
+      color={color}
+      anchorX="center"
+      anchorY="middle"
+    >
+      {label}
+    </Text>,
+    camera as unknown as THREE.Object3D
+  )
+}
+
 export default function App() {
   const [hostname, setHostname] = useState(() => localStorage.getItem("wsHostname") ?? "")
+  const [vrState, setVrState] = useState<AxolState>(AxolState.Teleop)
   const { status, wsUrl, connect, disconnect, wsRef } = useAxolVRClient(hostname)
 
   const handleConnect = () => {
@@ -249,7 +284,8 @@ export default function App() {
 
       <Canvas>
         <XR store={store}>
-          <AxolVRClient wsRef={wsRef} />
+          <AxolVRClient wsRef={wsRef} onStateChange={setVrState} />
+          <StateDisplay state={vrState} />
           <PoseVisualizer />
         </XR>
       </Canvas>
