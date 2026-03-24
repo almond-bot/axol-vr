@@ -3,11 +3,14 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
 
-const store = createXRStore({ handTracking: false })
+const store = createXRStore({ handTracking: false, customSessionInit: { optionalFeatures: ["body-tracking"] } })
 const MAX_RETRIES = 3
 const RETRY_MS = 1000
 
 const wsRef = { current: null as WebSocket | null }
+
+const L_ELBOW_JOINT = "left-arm-lower" as XRBodyJoint
+const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
 
 const AXIS_LEN = 0.1
 const SHAFT_R = 0.004
@@ -53,6 +56,8 @@ function PoseVisualizer() {
   const { gl } = useThree()
   const leftRef = useRef<THREE.Group>(null)
   const rightRef = useRef<THREE.Group>(null)
+  const lElbowRef = useRef<THREE.Group>(null)
+  const rElbowRef = useRef<THREE.Group>(null)
 
   useFrame(() => {
     const session = gl.xr.getSession()
@@ -72,17 +77,37 @@ function PoseVisualizer() {
       group.visible = true
     }
 
+    function applyPositionOnly(group: THREE.Group | null, space: XRSpace | null | undefined) {
+      if (!group) return
+      if (!space) { group.visible = false; return }
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) { group.visible = false; return }
+      const { position: p } = pose.transform
+      group.position.set(p.x, p.y, p.z)
+      group.visible = true
+    }
+
     const leftSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "left")
     const rightSource = Array.from(session.inputSources).find((s: XRInputSource) => s.handedness === "right")
 
     applyPose(leftRef.current, leftSource?.targetRaySpace ?? null)
     applyPose(rightRef.current, rightSource?.targetRaySpace ?? null)
+
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    applyPositionOnly(lElbowRef.current, body?.get(L_ELBOW_JOINT))
+    applyPositionOnly(rElbowRef.current, body?.get(R_ELBOW_JOINT))
   })
 
   return (
     <>
       <AxesMarker groupRef={leftRef} />
       <AxesMarker groupRef={rightRef} />
+      <group ref={lElbowRef} visible={false}>
+        <mesh><sphereGeometry args={[DOT_RADIUS, 10, 10]} /><meshBasicMaterial color="#00FF00" /></mesh>
+      </group>
+      <group ref={rElbowRef} visible={false}>
+        <mesh><sphereGeometry args={[DOT_RADIUS, 10, 10]} /><meshBasicMaterial color="#00FF00" /></mesh>
+      </group>
     </>
   )
 }
@@ -112,24 +137,38 @@ function PoseSender() {
       return { x: p.x, y: p.y, z: p.z, qx: o.x, qy: o.y, qz: o.z, qw: o.w }
     }
 
-    const leftPose = getRawPose(leftSource?.targetRaySpace)
-    const rightPose = getRawPose(rightSource?.targetRaySpace)
+    function getPositionOnly(space: XRSpace | null | undefined): { x: number; y: number; z: number } | null {
+      if (!space) return null
+      const pose = frame.getPose(space, refSpace!)
+      if (!pose) return null
+      const { position: p } = pose.transform
+      return { x: p.x, y: p.y, z: p.z }
+    }
 
-    if (!leftPose || !rightPose) return
+    const left = getRawPose(leftSource?.targetRaySpace)
+    const right = getRawPose(rightSource?.targetRaySpace)
 
-    const lGrip = 1 - (leftSource?.gamepad?.buttons[0]?.value ?? 0)
-    const rGrip = 1 - (rightSource?.gamepad?.buttons[0]?.value ?? 0)
-    const lLock = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
-    const rLock = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
+    if (!left || !right) return
+
+    const body = (frame as XRFrame & { body?: XRBody }).body
+    const left_e = getPositionOnly(body?.get(L_ELBOW_JOINT))
+    const right_e = getPositionOnly(body?.get(R_ELBOW_JOINT))
+
+    const l_grip = 1 - (leftSource?.gamepad?.buttons[0]?.value ?? 0)
+    const r_grip = 1 - (rightSource?.gamepad?.buttons[0]?.value ?? 0)
+    const l_lock = (leftSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
+    const r_lock = (rightSource?.gamepad?.buttons[1]?.value ?? 0) >= 1.0
     const reset = rightSource?.gamepad?.buttons[4]?.pressed ?? false
 
     ws.send(JSON.stringify({
-      left: leftPose,
-      right: rightPose,
-      l_lock: lLock,
-      r_lock: rLock,
-      l_grip: lGrip,
-      r_grip: rGrip,
+      left
+      right,
+      left_e,
+      right_e,
+      l_lock,
+      r_lock,
+      l_grip,
+      r_grip,
       reset,
     }))
   })
