@@ -169,6 +169,10 @@ export default function App() {
             gap: 10,
           }}
         >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <img src="/almond.svg" alt="Almond" style={{ width: 48, height: 48 }} />
+            <span style={{ fontSize: 32, fontWeight: 800 }}>Almond Axol VR</span>
+          </div>
           {status === AxolConnectionStatus.Open && (
             <button type="button" onClick={() => store.enterAR()}>
               Start
@@ -202,9 +206,9 @@ export default function App() {
                   fontSize: 12,
                   padding: "4px 8px",
                   borderRadius: 4,
-                  border: "1px solid #555",
-                  background: "#1a1a1a",
-                  color: "#eee",
+                  border: "1px solid #333",
+                  background: "#1e1e1e",
+                  color: "white",
                   width: 160,
                 }}
               />
