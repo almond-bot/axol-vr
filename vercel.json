@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm run build --workspace=apps/axol-vr-app",
+  "outputDirectory": "apps/axol-vr-app/dist",
+  "installCommand": "npm install"
+}
