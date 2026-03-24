@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Canvas, createPortal, useFrame, useThree } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Text } from "@react-three/drei"
 import { createXRStore, XR } from "@react-three/xr"
 import * as THREE from "three"
@@ -140,7 +140,14 @@ function PoseVisualizer() {
 }
 
 function StateDisplay({ state }: { state: AxolState }) {
-  const { camera } = useThree()
+  const groupRef = useRef<THREE.Group>(null)
+
+  useFrame(({ camera }) => {
+    if (!groupRef.current) return
+    groupRef.current.position.copy(camera.position)
+    groupRef.current.quaternion.copy(camera.quaternion)
+  })
+
   const color =
     state === AxolState.Recording
       ? "#f87171"
@@ -153,17 +160,13 @@ function StateDisplay({ state }: { state: AxolState }) {
       : state === AxolState.DataCollection
         ? "● Data Collection"
         : "● Teleop"
-  return createPortal(
-    <Text
-      position={[0, -0.08, -0.5]}
-      fontSize={0.025}
-      color={color}
-      anchorX="center"
-      anchorY="middle"
-    >
-      {label}
-    </Text>,
-    camera as unknown as THREE.Object3D
+
+  return (
+    <group ref={groupRef}>
+      <Text position={[0.2, 0.1, -0.5]} fontSize={0.02} color={color} anchorX="right" anchorY="top">
+        {label}
+      </Text>
+    </group>
   )
 }
 
