@@ -142,7 +142,7 @@ function PoseVisualizer() {
 function XRHud({ children }: { children: ReactNode }) {
   const groupRef = useRef<THREE.Group>(null)
 
-  useFrame(({ camera, gl }) => {
+  useFrame(({ gl }) => {
     if (!groupRef.current) return
     groupRef.current.visible = gl.xr.isPresenting
     if (!gl.xr.isPresenting) return
