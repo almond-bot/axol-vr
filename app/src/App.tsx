@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Text } from "@react-three/drei"
 import { createXRStore, XR } from "@react-three/xr"
@@ -139,15 +139,49 @@ function PoseVisualizer() {
   )
 }
 
-function StateDisplay({ state }: { state: AxolState }) {
+function XRHud({ children }: { children: ReactNode }) {
   const groupRef = useRef<THREE.Group>(null)
 
-  useFrame(({ camera }) => {
+  useFrame(({ camera, gl }) => {
     if (!groupRef.current) return
-    groupRef.current.position.copy(camera.position)
-    groupRef.current.quaternion.copy(camera.quaternion)
+    const activeCam = gl.xr.isPresenting ? gl.xr.getCamera() : camera
+    groupRef.current.position.copy(activeCam.position)
+    groupRef.current.quaternion.copy(activeCam.quaternion)
   })
 
+  return <group ref={groupRef}>{children}</group>
+}
+
+function ExitButton() {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <group position={[-0.18, 0.1, -0.5]}>
+      <mesh
+        renderOrder={999}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        onClick={() => store.getState().session?.end()}
+      >
+        <planeGeometry args={[0.09, 0.035]} />
+        <meshBasicMaterial color={hovered ? "#555" : "#2a2a2a"} depthTest={false} />
+      </mesh>
+      <Text
+        position={[0, 0, 0.001]}
+        fontSize={0.016}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+        renderOrder={1000}
+        depthTest={false}
+      >
+        Exit
+      </Text>
+    </group>
+  )
+}
+
+function StateDisplay({ state }: { state: AxolState }) {
   const color =
     state === AxolState.Recording
       ? "#f87171"
@@ -162,11 +196,17 @@ function StateDisplay({ state }: { state: AxolState }) {
         : "● Teleop"
 
   return (
-    <group ref={groupRef}>
-      <Text position={[0.2, 0.1, -0.5]} fontSize={0.02} color={color} anchorX="right" anchorY="top">
-        {label}
-      </Text>
-    </group>
+    <Text
+      position={[0.2, 0.1, -0.5]}
+      fontSize={0.02}
+      color={color}
+      anchorX="right"
+      anchorY="top"
+      renderOrder={999}
+      depthTest={false}
+    >
+      {label}
+    </Text>
   )
 }
 
@@ -288,7 +328,10 @@ export default function App() {
       <Canvas>
         <XR store={store}>
           <AxolVRClient wsRef={wsRef} onStateChange={setVrState} />
-          <StateDisplay state={vrState} />
+          <XRHud>
+            <StateDisplay state={vrState} />
+            <ExitButton />
+          </XRHud>
           <PoseVisualizer />
         </XR>
       </Canvas>
