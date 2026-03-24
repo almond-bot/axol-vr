@@ -158,34 +158,20 @@ function ExitButton() {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <group position={[0, 0, -0.5]}>
-      <mesh
-        renderOrder={999}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        onClick={() => store.getState().session?.end()}
-      >
-        <planeGeometry args={[0.09, 0.035]} />
-        <meshBasicMaterial
-          color={hovered ? "#666" : "#333"}
-          transparent
-          opacity={0.85}
-          depthTest={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <Text
-        position={[0, 0, 0.001]}
-        fontSize={0.016}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        renderOrder={1000}
-        material-depthTest={false}
-      >
-        Exit
-      </Text>
-    </group>
+    <Text
+      position={[-0.2, 0.1, -0.5]}
+      fontSize={0.02}
+      color={hovered ? "white" : "#9ca3af"}
+      anchorX="left"
+      anchorY="top"
+      renderOrder={999}
+      material-depthTest={false}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+      onClick={() => store.getState().session?.end()}
+    >
+      Exit XR
+    </Text>
   )
 }
 
