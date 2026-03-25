@@ -169,7 +169,7 @@ function ExitButton() {
       fontSize={0.02}
       fontWeight="bold"
       color={hovered ? "white" : "gray"}
-      anchorX="left"
+      anchorX="right"
       anchorY="top"
       renderOrder={999}
       material-depthTest={false}
@@ -185,21 +185,13 @@ function ExitButton() {
 
 function StateDisplay({ state }: { state: AxolState }) {
   const color =
-    state === AxolState.Recording
-      ? "red"
-      : state === AxolState.PendingRecording
-        ? "yellow"
-        : state === AxolState.DataCollection
-          ? "blue"
-          : "gray"
+    state === AxolState.Recording ? "red" : state === AxolState.DataCollection ? "blue" : "gray"
   const label =
     state === AxolState.Recording
       ? "● Recording"
-      : state === AxolState.PendingRecording
-        ? "● Starting…"
-        : state === AxolState.DataCollection
-          ? "● Data Collection"
-          : "● Teleop"
+      : state === AxolState.DataCollection
+        ? "● Data Collection"
+        : "● Teleop"
 
   return (
     <Text
@@ -218,13 +210,13 @@ function StateDisplay({ state }: { state: AxolState }) {
   )
 }
 
-function CountdownDisplay({ pendingStartAt }: { pendingStartAt: number | null }) {
+function CountdownDisplay({ recordingPendingAt }: { recordingPendingAt: number | null }) {
   const [count, setCount] = useState(3)
   const prevCountRef = useRef(3)
 
   useFrame(() => {
-    if (pendingStartAt === null) return
-    const remaining = Math.ceil((3000 - (Date.now() - pendingStartAt)) / 1000)
+    if (recordingPendingAt === null) return
+    const remaining = Math.ceil((3000 - (Date.now() - recordingPendingAt)) / 1000)
     const clamped = Math.max(1, Math.min(3, remaining))
     if (clamped !== prevCountRef.current) {
       prevCountRef.current = clamped
@@ -232,7 +224,7 @@ function CountdownDisplay({ pendingStartAt }: { pendingStartAt: number | null })
     }
   })
 
-  if (pendingStartAt === null) return null
+  if (recordingPendingAt === null) return null
 
   return (
     <Text
@@ -253,12 +245,7 @@ function CountdownDisplay({ pendingStartAt }: { pendingStartAt: number | null })
 export default function App() {
   const [hostname, setHostname] = useState(() => localStorage.getItem("wsHostname") ?? "")
   const [vrState, setVrState] = useState<AxolState>(AxolState.Teleop)
-  const [pendingStartAt, setPendingStartAt] = useState<number | null>(null)
-
-  const handleStateChange = (state: AxolState) => {
-    setVrState(state)
-    setPendingStartAt(state === AxolState.PendingRecording ? Date.now() : null)
-  }
+  const [recordingPendingAt, setRecordingPendingAt] = useState<number | null>(null)
   const { status, wsUrl, connect, disconnect, wsRef } = useAxolVRClient(hostname)
 
   const handleConnect = () => {
@@ -373,11 +360,15 @@ export default function App() {
 
       <Canvas>
         <XR store={store}>
-          <AxolVRClient wsRef={wsRef} onStateChange={handleStateChange} />
+          <AxolVRClient
+            wsRef={wsRef}
+            onStateChange={setVrState}
+            onPendingRecording={setRecordingPendingAt}
+          />
           <XRHud>
             <StateDisplay state={vrState} />
             <ExitButton />
-            <CountdownDisplay pendingStartAt={pendingStartAt} />
+            <CountdownDisplay recordingPendingAt={recordingPendingAt} />
           </XRHud>
           <PoseVisualizer />
         </XR>

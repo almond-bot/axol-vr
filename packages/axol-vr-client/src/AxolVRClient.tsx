@@ -9,9 +9,11 @@ const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
 export function AxolVRClient({
   wsRef,
   onStateChange,
+  onPendingRecording,
 }: {
   wsRef: RefObject<WebSocket | null>
   onStateChange?: (state: AxolState) => void
+  onPendingRecording?: (pendingAt: number | null) => void
 }) {
   const { gl } = useThree()
 
@@ -55,43 +57,42 @@ export function AxolVRClient({
       onStateChange?.(next)
     }
 
+    const isPending = recordingPendingAtRef.current !== null
+
     // X — reset; also cancels pending/recording
     let reset = false
     if (xEdge) {
       reset = true
-      if (state === AxolState.Recording || state === AxolState.PendingRecording) {
+      if (state === AxolState.Recording || isPending) {
         setState(AxolState.DataCollection)
         recordingPendingAtRef.current = null
+        onPendingRecording?.(null)
       }
     }
 
     // Y — swap teleop ↔ data_collection (disabled when recording or pending)
-    if (yEdge && state !== AxolState.Recording && state !== AxolState.PendingRecording) {
+    if (yEdge && state !== AxolState.Recording && !isPending) {
       setState(state === AxolState.Teleop ? AxolState.DataCollection : AxolState.Teleop)
     }
 
-    // A — start episode (pending → recording) or stop recording immediately
+    // A — start pending (3s countdown) or stop recording immediately; A cancels pending too
     if (aEdge) {
       if (state === AxolState.Recording) {
         setState(AxolState.DataCollection)
-        recordingPendingAtRef.current = null
-      } else if (state === AxolState.DataCollection) {
-        setState(AxolState.PendingRecording)
+      } else if (state === AxolState.DataCollection && !isPending) {
         recordingPendingAtRef.current = Date.now()
-      } else if (state === AxolState.PendingRecording) {
-        setState(AxolState.DataCollection)
+        onPendingRecording?.(recordingPendingAtRef.current)
+      } else if (isPending) {
         recordingPendingAtRef.current = null
+        onPendingRecording?.(null)
       }
     }
 
     // Promote pending → recording after 3s
-    if (
-      state === AxolState.PendingRecording &&
-      recordingPendingAtRef.current !== null &&
-      Date.now() - recordingPendingAtRef.current >= 3000
-    ) {
+    if (isPending && Date.now() - recordingPendingAtRef.current! >= 3000) {
       setState(AxolState.Recording)
       recordingPendingAtRef.current = null
+      onPendingRecording?.(null)
     }
 
     const ws = wsRef.current
@@ -143,10 +144,7 @@ export function AxolVRClient({
         l_grip,
         r_grip,
         reset,
-        state:
-          stateRef.current === AxolState.PendingRecording
-            ? AxolState.DataCollection
-            : stateRef.current,
+        state: stateRef.current,
       })
     )
   })
