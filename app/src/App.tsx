@@ -139,6 +139,8 @@ function PoseVisualizer() {
   )
 }
 
+const hudBg = { backgroundColor: "#000000", backgroundOpacity: 0.5, padding: 0.006 } as object
+
 function XRHud({ children }: { children: ReactNode }) {
   const groupRef = useRef<THREE.Group>(null)
 
@@ -166,14 +168,12 @@ function ExitButton() {
       position={[-0.2, 0.1, -0.5]}
       fontSize={0.02}
       fontWeight="bold"
-      color={hovered ? "white" : "#9ca3af"}
+      color={hovered ? "white" : "gray"}
       anchorX="left"
       anchorY="top"
       renderOrder={999}
       material-depthTest={false}
-      backgroundColor="#000000"
-      backgroundOpacity={0.5}
-      padding={0.006}
+      {...hudBg}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
       onClick={() => store.getState().session?.end()}
@@ -186,12 +186,12 @@ function ExitButton() {
 function StateDisplay({ state }: { state: AxolState }) {
   const color =
     state === AxolState.Recording
-      ? "#f87171"
+      ? "red"
       : state === AxolState.PendingRecording
-        ? "#eab308"
+        ? "yellow"
         : state === AxolState.DataCollection
-          ? "#60a5fa"
-          : "#9ca3af"
+          ? "blue"
+          : "gray"
   const label =
     state === AxolState.Recording
       ? "● Recording"
@@ -211,9 +211,7 @@ function StateDisplay({ state }: { state: AxolState }) {
       anchorY="top"
       renderOrder={999}
       material-depthTest={false}
-      backgroundColor="#000000"
-      backgroundOpacity={0.5}
-      padding={0.006}
+      {...hudBg}
     >
       {label}
     </Text>
