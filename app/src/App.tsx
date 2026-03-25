@@ -51,7 +51,7 @@ function AxesMarker({ groupRef }: { groupRef: React.RefObject<THREE.Group | null
       ))}
       <mesh>
         <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
-        <meshBasicMaterial color="#FF0000" />
+        <meshBasicMaterial color="#FFFF00" />
       </mesh>
     </group>
   )
@@ -126,13 +126,13 @@ function PoseVisualizer() {
       <group ref={lElbowRef} visible={false}>
         <mesh>
           <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
-          <meshBasicMaterial color="#00FF00" />
+          <meshBasicMaterial color="#FFFF00" />
         </mesh>
       </group>
       <group ref={rElbowRef} visible={false}>
         <mesh>
           <sphereGeometry args={[DOT_RADIUS, 10, 10]} />
-          <meshBasicMaterial color="#00FF00" />
+          <meshBasicMaterial color="#FFFF00" />
         </mesh>
       </group>
     </>
@@ -180,11 +180,23 @@ function ExitButton() {
   )
 }
 
-function StateDisplay({ state }: { state: AxolState }) {
-  const color =
-    state === AxolState.Recording ? "red" : state === AxolState.DataCollection ? "blue" : "white"
-  const label =
-    state === AxolState.Recording
+function StateDisplay({
+  state,
+  isRecordingPending,
+}: {
+  state: AxolState
+  isRecordingPending: boolean
+}) {
+  const color = isRecordingPending
+    ? "yellow"
+    : state === AxolState.Recording
+      ? "red"
+      : state === AxolState.DataCollection
+        ? "blue"
+        : "white"
+  const label = isRecordingPending
+    ? "● Starting…"
+    : state === AxolState.Recording
       ? "● Recording"
       : state === AxolState.DataCollection
         ? "● Data Collection"
@@ -207,44 +219,109 @@ function StateDisplay({ state }: { state: AxolState }) {
   )
 }
 
-const HELP_TEXT = `X (left): Reset pose
-Y (left): Exit XR
-A (right): Start / stop recording
-B (right): Toggle teleop / data collection`
+function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
+  const W = 0.38
+  const H = 0.1
+  const col = 0.09
+
+  return (
+    <group position={[0, -0.038, 0]}>
+      {/* Large dismiss plane behind everything */}
+      <mesh position={[0, 0, -0.002]} renderOrder={996} onClick={onDismiss}>
+        <planeGeometry args={[2, 2]} />
+        <meshBasicMaterial transparent opacity={0} depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Panel background */}
+      <mesh position={[0, -H / 2, -0.001]} renderOrder={998} onClick={(e) => e.stopPropagation()}>
+        <planeGeometry args={[W, H]} />
+        <meshBasicMaterial
+          color="black"
+          transparent
+          opacity={0.85}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Vertical divider */}
+      <mesh position={[0, -H / 2, 0]} renderOrder={999}>
+        <planeGeometry args={[0.002, H]} />
+        <meshBasicMaterial color="white" depthTest={false} side={THREE.DoubleSide} />
+      </mesh>
+      {/* LEFT header */}
+      <Text
+        position={[-col, -0.004, 0]}
+        fontSize={0.013}
+        color="white"
+        fontWeight="bold"
+        anchorX="center"
+        anchorY="top"
+        renderOrder={1000}
+        material-depthTest={false}
+      >
+        LEFT
+      </Text>
+      {/* RIGHT header */}
+      <Text
+        position={[col, -0.004, 0]}
+        fontSize={0.013}
+        color="white"
+        fontWeight="bold"
+        anchorX="center"
+        anchorY="top"
+        renderOrder={1000}
+        material-depthTest={false}
+      >
+        RIGHT
+      </Text>
+      {/* Left buttons */}
+      <Text
+        position={[-col, -0.022, 0]}
+        fontSize={0.013}
+        color="white"
+        anchorX="center"
+        anchorY="top"
+        renderOrder={1000}
+        material-depthTest={false}
+        lineHeight={1.6}
+      >
+        {`[Y]  Exit XR\n[X]  Reset pose`}
+      </Text>
+      {/* Right buttons */}
+      <Text
+        position={[col, -0.022, 0]}
+        fontSize={0.013}
+        color="white"
+        anchorX="center"
+        anchorY="top"
+        renderOrder={1000}
+        material-depthTest={false}
+        lineHeight={1.6}
+      >
+        {`[B]  Toggle mode\n[A]  Start / stop rec`}
+      </Text>
+    </group>
+  )
+}
 
 function HelpIcon() {
-  const [hovered, setHovered] = useState(false)
+  const [open, setOpen] = useState(false)
 
   return (
     <group position={[0, 0.1, -0.5]}>
       <Text
         fontSize={0.02}
         fontWeight="bold"
-        color={hovered ? "yellow" : "white"}
+        color={open ? "yellow" : "white"}
         anchorX="center"
         anchorY="top"
         renderOrder={999}
         material-depthTest={false}
         {...hudBg}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
+        onClick={() => setOpen((v) => !v)}
       >
         ?
       </Text>
-      {hovered && (
-        <Text
-          position={[0, -0.036, 0]}
-          fontSize={0.016}
-          color="white"
-          anchorX="center"
-          anchorY="top"
-          renderOrder={999}
-          material-depthTest={false}
-          {...hudBg}
-        >
-          {HELP_TEXT}
-        </Text>
-      )}
+      {open && <HelpPanel onDismiss={() => setOpen(false)} />}
     </group>
   )
 }
@@ -380,18 +457,18 @@ export default function App() {
             </button>
           )}
           {status === AxolConnectionStatus.Open && (
-            <div
-              style={{
-                fontSize: 11,
-                color: "#9ca3af",
-                lineHeight: 1.8,
-                textAlign: "left",
-              }}
-            >
-              <div>X (left) — Reset pose</div>
-              <div>Y (left) — Exit XR</div>
-              <div>A (right) — Start / stop recording</div>
-              <div>B (right) — Toggle teleop / data collection</div>
+            <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#9ca3af" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>LEFT</div>
+                <div>[Y] Exit XR</div>
+                <div>[X] Reset pose</div>
+              </div>
+              <div style={{ width: 1, background: "#9ca3af", alignSelf: "stretch" }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>RIGHT</div>
+                <div>[B] Toggle mode</div>
+                <div>[A] Start / stop rec</div>
+              </div>
             </div>
           )}
           {status === AxolConnectionStatus.Failed && (
@@ -423,7 +500,7 @@ export default function App() {
           <XRHud>
             <ExitButton />
             <HelpIcon />
-            <StateDisplay state={vrState} />
+            <StateDisplay state={vrState} isRecordingPending={recordingPendingAt !== null} />
             <CountdownDisplay recordingPendingAt={recordingPendingAt} />
           </XRHud>
           <PoseVisualizer />
