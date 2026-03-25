@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Text } from "@react-three/drei"
-import { createXRStore, XR } from "@react-three/xr"
+import { createXRStore, XR, useXR } from "@react-three/xr"
 import * as THREE from "three"
 import {
   AxolConnectionStatus,
@@ -142,22 +142,19 @@ function PoseVisualizer() {
 const hudBg = { backgroundColor: "#000000", backgroundOpacity: 0.5, padding: 0.006 } as object
 
 function XRHud({ children }: { children: ReactNode }) {
+  const session = useXR((s) => s.session)
   const groupRef = useRef<THREE.Group>(null)
 
   useFrame(({ gl }) => {
     if (!groupRef.current) return
-    groupRef.current.visible = gl.xr.isPresenting
-    if (!gl.xr.isPresenting) return
     const activeCam = gl.xr.getCamera()
     groupRef.current.position.copy(activeCam.position)
     groupRef.current.quaternion.copy(activeCam.quaternion)
   })
 
-  return (
-    <group ref={groupRef} visible={false}>
-      {children}
-    </group>
-  )
+  if (!session) return null
+
+  return <group ref={groupRef}>{children}</group>
 }
 
 function ExitButton() {
@@ -168,8 +165,8 @@ function ExitButton() {
       position={[-0.2, 0.1, -0.5]}
       fontSize={0.02}
       fontWeight="bold"
-      color={hovered ? "white" : "gray"}
-      anchorX="right"
+      color={hovered ? "yellow" : "white"}
+      anchorX="left"
       anchorY="top"
       renderOrder={999}
       material-depthTest={false}
@@ -185,7 +182,7 @@ function ExitButton() {
 
 function StateDisplay({ state }: { state: AxolState }) {
   const color =
-    state === AxolState.Recording ? "red" : state === AxolState.DataCollection ? "blue" : "gray"
+    state === AxolState.Recording ? "red" : state === AxolState.DataCollection ? "blue" : "white"
   const label =
     state === AxolState.Recording
       ? "● Recording"
