@@ -147,6 +147,8 @@ function XRHud({ children }: { children: ReactNode }) {
 
   useFrame(({ gl }) => {
     if (!groupRef.current) return
+    groupRef.current.visible = gl.xr.isPresenting
+    if (!gl.xr.isPresenting) return
     const activeCam = gl.xr.getCamera()
     groupRef.current.position.copy(activeCam.position)
     groupRef.current.quaternion.copy(activeCam.quaternion)
@@ -154,7 +156,11 @@ function XRHud({ children }: { children: ReactNode }) {
 
   if (!session) return null
 
-  return <group ref={groupRef}>{children}</group>
+  return (
+    <group ref={groupRef} visible={false}>
+      {children}
+    </group>
+  )
 }
 
 function ExitButton() {
@@ -220,9 +226,9 @@ function StateDisplay({
 }
 
 function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
-  const W = 0.24
-  const H = 0.1
-  const col = 0.055
+  const W = 0.3
+  const H = 0.075
+  const col = 0.07
 
   return (
     <group position={[0, -0.038, 0]}>

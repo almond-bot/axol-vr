@@ -100,7 +100,10 @@ export function AxolVRClient({
     }
 
     // Promote pending → recording after 3s
-    if (isPending && Date.now() - recordingPendingAtRef.current! >= 3000) {
+    if (
+      recordingPendingAtRef.current !== null &&
+      Date.now() - recordingPendingAtRef.current >= 3000
+    ) {
       setState(AxolState.Recording)
       recordingPendingAtRef.current = null
       onPendingRecording?.(null)
