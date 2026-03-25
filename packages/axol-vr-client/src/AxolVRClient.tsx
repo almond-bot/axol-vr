@@ -55,33 +55,38 @@ export function AxolVRClient({
       onStateChange?.(next)
     }
 
-    // X — reset; also cancels recording
+    // X — reset; also cancels pending/recording
     let reset = false
     if (xEdge) {
       reset = true
-      if (state === AxolState.Recording) {
+      if (state === AxolState.Recording || state === AxolState.PendingRecording) {
         setState(AxolState.DataCollection)
         recordingPendingAtRef.current = null
       }
     }
 
-    // Y — swap teleop ↔ data_collection (disabled when recording)
-    if (yEdge && state !== AxolState.Recording) {
+    // Y — swap teleop ↔ data_collection (disabled when recording or pending)
+    if (yEdge && state !== AxolState.Recording && state !== AxolState.PendingRecording) {
       setState(state === AxolState.Teleop ? AxolState.DataCollection : AxolState.Teleop)
     }
 
-    // A — start episode (3s delay) or stop recording immediately
+    // A — start episode (pending → recording) or stop recording immediately
     if (aEdge) {
       if (state === AxolState.Recording) {
         setState(AxolState.DataCollection)
         recordingPendingAtRef.current = null
-      } else if (state === AxolState.DataCollection && recordingPendingAtRef.current === null) {
+      } else if (state === AxolState.DataCollection) {
+        setState(AxolState.PendingRecording)
         recordingPendingAtRef.current = Date.now()
+      } else if (state === AxolState.PendingRecording) {
+        setState(AxolState.DataCollection)
+        recordingPendingAtRef.current = null
       }
     }
 
     // Promote pending → recording after 3s
     if (
+      state === AxolState.PendingRecording &&
       recordingPendingAtRef.current !== null &&
       Date.now() - recordingPendingAtRef.current >= 3000
     ) {
@@ -138,7 +143,10 @@ export function AxolVRClient({
         l_grip,
         r_grip,
         reset,
-        state: stateRef.current,
+        state:
+          stateRef.current === AxolState.PendingRecording
+            ? AxolState.DataCollection
+            : stateRef.current,
       })
     )
   })

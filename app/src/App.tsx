@@ -162,32 +162,24 @@ function ExitButton() {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <group position={[-0.15, 0.1, -0.5]}>
-      <mesh position={[0, -0.01, -0.001]} renderOrder={998}>
-        <planeGeometry args={[0.1, 0.035]} />
-        <meshBasicMaterial
-          color="#000"
-          transparent
-          opacity={0.5}
-          depthTest={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <Text
-        fontSize={0.02}
-        fontWeight="bold"
-        color={hovered ? "white" : "#9ca3af"}
-        anchorX="center"
-        anchorY="top"
-        renderOrder={999}
-        material-depthTest={false}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-        onClick={() => store.getState().session?.end()}
-      >
-        Exit
-      </Text>
-    </group>
+    <Text
+      position={[-0.2, 0.1, -0.5]}
+      fontSize={0.02}
+      fontWeight="bold"
+      color={hovered ? "white" : "#9ca3af"}
+      anchorX="left"
+      anchorY="top"
+      renderOrder={999}
+      material-depthTest={false}
+      backgroundColor="#000000"
+      backgroundOpacity={0.5}
+      padding={0.006}
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+      onClick={() => store.getState().session?.end()}
+    >
+      Exit
+    </Text>
   )
 }
 
@@ -195,46 +187,80 @@ function StateDisplay({ state }: { state: AxolState }) {
   const color =
     state === AxolState.Recording
       ? "#f87171"
-      : state === AxolState.DataCollection
-        ? "#60a5fa"
-        : "#9ca3af"
+      : state === AxolState.PendingRecording
+        ? "#eab308"
+        : state === AxolState.DataCollection
+          ? "#60a5fa"
+          : "#9ca3af"
   const label =
     state === AxolState.Recording
       ? "● Recording"
-      : state === AxolState.DataCollection
-        ? "● Data Collection"
-        : "● Teleop"
+      : state === AxolState.PendingRecording
+        ? "● Starting…"
+        : state === AxolState.DataCollection
+          ? "● Data Collection"
+          : "● Teleop"
 
   return (
-    <group position={[0.15, 0.1, -0.5]}>
-      <mesh position={[0, -0.01, -0.001]} renderOrder={998}>
-        <planeGeometry args={[0.26, 0.035]} />
-        <meshBasicMaterial
-          color="#000"
-          transparent
-          opacity={0.5}
-          depthTest={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <Text
-        fontSize={0.02}
-        fontWeight="bold"
-        color={color}
-        anchorX="center"
-        anchorY="top"
-        renderOrder={999}
-        material-depthTest={false}
-      >
-        {label}
-      </Text>
-    </group>
+    <Text
+      position={[0.2, 0.1, -0.5]}
+      fontSize={0.02}
+      fontWeight="bold"
+      color={color}
+      anchorX="right"
+      anchorY="top"
+      renderOrder={999}
+      material-depthTest={false}
+      backgroundColor="#000000"
+      backgroundOpacity={0.5}
+      padding={0.006}
+    >
+      {label}
+    </Text>
+  )
+}
+
+function CountdownDisplay({ pendingStartAt }: { pendingStartAt: number | null }) {
+  const [count, setCount] = useState(3)
+  const prevCountRef = useRef(3)
+
+  useFrame(() => {
+    if (pendingStartAt === null) return
+    const remaining = Math.ceil((3000 - (Date.now() - pendingStartAt)) / 1000)
+    const clamped = Math.max(1, Math.min(3, remaining))
+    if (clamped !== prevCountRef.current) {
+      prevCountRef.current = clamped
+      setCount(clamped)
+    }
+  })
+
+  if (pendingStartAt === null) return null
+
+  return (
+    <Text
+      position={[0, 0, -0.5]}
+      fontSize={0.1}
+      fontWeight="bold"
+      color="white"
+      anchorX="center"
+      anchorY="middle"
+      renderOrder={999}
+      material-depthTest={false}
+    >
+      {String(count)}
+    </Text>
   )
 }
 
 export default function App() {
   const [hostname, setHostname] = useState(() => localStorage.getItem("wsHostname") ?? "")
   const [vrState, setVrState] = useState<AxolState>(AxolState.Teleop)
+  const [pendingStartAt, setPendingStartAt] = useState<number | null>(null)
+
+  const handleStateChange = (state: AxolState) => {
+    setVrState(state)
+    setPendingStartAt(state === AxolState.PendingRecording ? Date.now() : null)
+  }
   const { status, wsUrl, connect, disconnect, wsRef } = useAxolVRClient(hostname)
 
   const handleConnect = () => {
@@ -349,10 +375,11 @@ export default function App() {
 
       <Canvas>
         <XR store={store}>
-          <AxolVRClient wsRef={wsRef} onStateChange={setVrState} />
+          <AxolVRClient wsRef={wsRef} onStateChange={handleStateChange} />
           <XRHud>
             <StateDisplay state={vrState} />
             <ExitButton />
+            <CountdownDisplay pendingStartAt={pendingStartAt} />
           </XRHud>
           <PoseVisualizer />
         </XR>
