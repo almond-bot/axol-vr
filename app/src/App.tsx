@@ -151,27 +151,43 @@ function XRHud({ children }: { children: ReactNode }) {
     groupRef.current.quaternion.copy(activeCam.quaternion)
   })
 
-  return <group ref={groupRef}>{children}</group>
+  return (
+    <group ref={groupRef} visible={false}>
+      {children}
+    </group>
+  )
 }
 
 function ExitButton() {
   const [hovered, setHovered] = useState(false)
 
   return (
-    <Text
-      position={[-0.2, 0.1, -0.5]}
-      fontSize={0.02}
-      color={hovered ? "white" : "#9ca3af"}
-      anchorX="left"
-      anchorY="top"
-      renderOrder={999}
-      material-depthTest={false}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
-      onClick={() => store.getState().session?.end()}
-    >
-      Exit XR
-    </Text>
+    <group position={[-0.15, 0.1, -0.5]}>
+      <mesh position={[0, -0.01, -0.001]} renderOrder={998}>
+        <planeGeometry args={[0.1, 0.035]} />
+        <meshBasicMaterial
+          color="#000"
+          transparent
+          opacity={0.5}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <Text
+        fontSize={0.02}
+        fontWeight="bold"
+        color={hovered ? "white" : "#9ca3af"}
+        anchorX="center"
+        anchorY="top"
+        renderOrder={999}
+        material-depthTest={false}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+        onClick={() => store.getState().session?.end()}
+      >
+        Exit
+      </Text>
+    </group>
   )
 }
 
@@ -190,17 +206,29 @@ function StateDisplay({ state }: { state: AxolState }) {
         : "● Teleop"
 
   return (
-    <Text
-      position={[0.2, 0.1, -0.5]}
-      fontSize={0.02}
-      color={color}
-      anchorX="right"
-      anchorY="top"
-      renderOrder={999}
-      material-depthTest={false}
-    >
-      {label}
-    </Text>
+    <group position={[0.15, 0.1, -0.5]}>
+      <mesh position={[0, -0.01, -0.001]} renderOrder={998}>
+        <planeGeometry args={[0.26, 0.035]} />
+        <meshBasicMaterial
+          color="#000"
+          transparent
+          opacity={0.5}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <Text
+        fontSize={0.02}
+        fontWeight="bold"
+        color={color}
+        anchorX="center"
+        anchorY="top"
+        renderOrder={999}
+        material-depthTest={false}
+      >
+        {label}
+      </Text>
+    </group>
   )
 }
 
