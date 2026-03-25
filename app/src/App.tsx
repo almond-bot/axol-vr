@@ -220,9 +220,9 @@ function StateDisplay({
 }
 
 function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
-  const W = 0.38
+  const W = 0.24
   const H = 0.1
-  const col = 0.09
+  const col = 0.055
 
   return (
     <group position={[0, -0.038, 0]}>
@@ -237,7 +237,7 @@ function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
         <meshBasicMaterial
           color="black"
           transparent
-          opacity={0.85}
+          opacity={0.97}
           depthTest={false}
           side={THREE.DoubleSide}
         />
@@ -284,7 +284,7 @@ function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
         material-depthTest={false}
         lineHeight={1.6}
       >
-        {`[Y]  Exit XR\n[X]  Reset pose`}
+        {`[Y]  Exit VR\n[X]  Reset Pose`}
       </Text>
       {/* Right buttons */}
       <Text
@@ -297,7 +297,7 @@ function HelpPanel({ onDismiss }: { onDismiss: () => void }) {
         material-depthTest={false}
         lineHeight={1.6}
       >
-        {`[B]  Toggle mode\n[A]  Start / stop rec`}
+        {`[B]  Toggle Mode\n[A]  Start / Stop Rec`}
       </Text>
     </group>
   )
@@ -457,17 +457,17 @@ export default function App() {
             </button>
           )}
           {status === AxolConnectionStatus.Open && (
-            <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#9ca3af" }}>
+            <div style={{ display: "flex", gap: 16, fontSize: 14, color: "#9ca3af", marginTop: 8 }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>LEFT</div>
-                <div>[Y] Exit XR</div>
-                <div>[X] Reset pose</div>
+                <div>[Y] Exit VR</div>
+                <div>[X] Reset Pose</div>
               </div>
               <div style={{ width: 1, background: "#9ca3af", alignSelf: "stretch" }} />
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>RIGHT</div>
-                <div>[B] Toggle mode</div>
-                <div>[A] Start / stop rec</div>
+                <div>[B] Toggle Mode</div>
+                <div>[A] Start / Stop Rec</div>
               </div>
             </div>
           )}
