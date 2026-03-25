@@ -207,6 +207,48 @@ function StateDisplay({ state }: { state: AxolState }) {
   )
 }
 
+const HELP_TEXT = `X (left): Reset pose
+Y (left): Exit XR
+A (right): Start / stop recording
+B (right): Toggle teleop / data collection`
+
+function HelpIcon() {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <group position={[0, 0.1, -0.5]}>
+      <Text
+        fontSize={0.02}
+        fontWeight="bold"
+        color={hovered ? "yellow" : "white"}
+        anchorX="center"
+        anchorY="top"
+        renderOrder={999}
+        material-depthTest={false}
+        {...hudBg}
+        onPointerOver={() => setHovered(true)}
+        onPointerOut={() => setHovered(false)}
+      >
+        ?
+      </Text>
+      {hovered && (
+        <Text
+          position={[0, -0.036, 0]}
+          fontSize={0.016}
+          color="white"
+          anchorX="center"
+          anchorY="top"
+          renderOrder={999}
+          material-depthTest={false}
+          {...hudBg}
+        >
+          {HELP_TEXT}
+        </Text>
+      )}
+    </group>
+  )
+}
+
 function CountdownDisplay({ recordingPendingAt }: { recordingPendingAt: number | null }) {
   const [count, setCount] = useState(3)
   const prevCountRef = useRef(3)
@@ -337,6 +379,21 @@ export default function App() {
               Disconnect
             </button>
           )}
+          {status === AxolConnectionStatus.Open && (
+            <div
+              style={{
+                fontSize: 11,
+                color: "#9ca3af",
+                lineHeight: 1.8,
+                textAlign: "left",
+              }}
+            >
+              <div>X (left) — Reset pose</div>
+              <div>Y (left) — Exit XR</div>
+              <div>A (right) — Start / stop recording</div>
+              <div>B (right) — Toggle teleop / data collection</div>
+            </div>
+          )}
           {status === AxolConnectionStatus.Failed && (
             <div
               style={{
@@ -361,10 +418,12 @@ export default function App() {
             wsRef={wsRef}
             onStateChange={setVrState}
             onPendingRecording={setRecordingPendingAt}
+            onExit={() => store.getState().session?.end()}
           />
           <XRHud>
-            <StateDisplay state={vrState} />
             <ExitButton />
+            <HelpIcon />
+            <StateDisplay state={vrState} />
             <CountdownDisplay recordingPendingAt={recordingPendingAt} />
           </XRHud>
           <PoseVisualizer />

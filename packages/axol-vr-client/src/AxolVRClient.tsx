@@ -10,10 +10,12 @@ export function AxolVRClient({
   wsRef,
   onStateChange,
   onPendingRecording,
+  onExit,
 }: {
   wsRef: RefObject<WebSocket | null>
   onStateChange?: (state: AxolState) => void
   onPendingRecording?: (pendingAt: number | null) => void
+  onExit?: () => void
 }) {
   const { gl } = useThree()
 
@@ -21,6 +23,7 @@ export function AxolVRClient({
   const prevXRef = useRef(false)
   const prevYRef = useRef(false)
   const prevARef = useRef(false)
+  const prevBRef = useRef(false)
   const recordingPendingAtRef = useRef<number | null>(null)
 
   useFrame(() => {
@@ -41,14 +44,17 @@ export function AxolVRClient({
     const xPressed = leftSource?.gamepad?.buttons[4]?.pressed ?? false
     const yPressed = leftSource?.gamepad?.buttons[5]?.pressed ?? false
     const aPressed = rightSource?.gamepad?.buttons[4]?.pressed ?? false
+    const bPressed = rightSource?.gamepad?.buttons[5]?.pressed ?? false
 
     const xEdge = xPressed && !prevXRef.current
     const yEdge = yPressed && !prevYRef.current
     const aEdge = aPressed && !prevARef.current
+    const bEdge = bPressed && !prevBRef.current
 
     prevXRef.current = xPressed
     prevYRef.current = yPressed
     prevARef.current = aPressed
+    prevBRef.current = bPressed
 
     const state = stateRef.current
 
@@ -70,8 +76,13 @@ export function AxolVRClient({
       }
     }
 
-    // Y — swap teleop ↔ data_collection (disabled when recording or pending)
-    if (yEdge && state !== AxolState.Recording && !isPending) {
+    // Y (left) — exit XR
+    if (yEdge) {
+      onExit?.()
+    }
+
+    // B (right) — swap teleop ↔ data_collection (disabled when recording or pending)
+    if (bEdge && state !== AxolState.Recording && !isPending) {
       setState(state === AxolState.Teleop ? AxolState.DataCollection : AxolState.Teleop)
     }
 
