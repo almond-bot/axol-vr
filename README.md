@@ -70,6 +70,8 @@ Each frame sends a JSON message over the WebSocket:
 |---|---|---|
 | 1 | Left grip | Press both grips (1 + 2) together to **enable** arm tracking; press either alone to **disable** it (toggle, not hold) |
 | 2 | Right grip | See above |
+| 3 | Left trigger | Actuate left gripper |
+| 4 | Right trigger | Actuate right gripper |
 | 5 | Left **X** | Reset pose; cancels recording countdown; exits Recording → DataCollection |
 | 7 | Left **Y** | Exit XR session |
 | 6 | Right **A** | Start recording (3-second countdown); stop immediately if already recording; cancels countdown if pressed during it |
