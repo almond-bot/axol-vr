@@ -53,8 +53,8 @@ Each frame sends a JSON message over the WebSocket:
   r_ee:    { position: { x, y, z }, quaternion: { x, y, z, w } }  // right controller
   l_elbow: { x, y, z }
   r_elbow: { x, y, z }
-  l_lock:  boolean   // left trigger fully pressed
-  r_lock:  boolean   // right trigger fully pressed
+  l_lock:  boolean   // left grip button state (True = pressed); rising edge of both together enables tracking, either alone disables it
+  r_lock:  boolean   // right grip button state (True = pressed); see l_lock
   l_grip:  number    // left grip (0 = fully gripped, 1 = open)
   r_grip:  number    // right grip
   reset:   boolean   // true on the frame X was pressed
@@ -64,12 +64,16 @@ Each frame sends a JSON message over the WebSocket:
 
 ## Controller bindings
 
-| Button | Action |
-|---|---|
-| Left **X** | Reset pose; cancels recording countdown; exits Recording → DataCollection |
-| Left **Y** | Exit XR session |
-| Right **A** | Start recording (3-second countdown); stop recording immediately if already recording; cancels countdown if pressed during it |
-| Right **B** | Toggle between Teleop and DataCollection (disabled while recording or countdown) |
+![Quest controller diagram](assets/quest.png)
+
+| # | Button | Action |
+|---|---|---|
+| 1 | Left grip | Press both grips (1 + 2) together to **enable** arm tracking; press either alone to **disable** it (toggle, not hold) |
+| 2 | Right grip | See above |
+| 5 | Left **X** | Reset pose; cancels recording countdown; exits Recording → DataCollection |
+| 7 | Left **Y** | Exit XR session |
+| 6 | Right **A** | Start recording (3-second countdown); stop immediately if already recording; cancels countdown if pressed during it |
+| 8 | Right **B** | Toggle between Teleop and DataCollection (disabled while recording or countdown) |
 
 ## State machine
 
