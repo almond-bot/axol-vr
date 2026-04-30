@@ -195,22 +195,26 @@ function StateDisplay({
 }) {
   const color = isRecordingPending
     ? "yellow"
-    : state === AxolState.Recording
-      ? "red"
-      : state === AxolState.Saving
-        ? "orange"
-        : state === AxolState.DataCollection
-          ? "blue"
-          : "white"
+    : state === AxolState.Error
+      ? "#f87171"
+      : state === AxolState.Recording
+        ? "red"
+        : state === AxolState.Saving
+          ? "orange"
+          : state === AxolState.DataCollection
+            ? "blue"
+            : "white"
   const label = isRecordingPending
     ? "● Starting…"
-    : state === AxolState.Recording
-      ? "● Recording"
-      : state === AxolState.Saving
-        ? "● Saving…"
-        : state === AxolState.DataCollection
-          ? "● Data Collection"
-          : "● Teleop"
+    : state === AxolState.Error
+      ? "● Error"
+      : state === AxolState.Recording
+        ? "● Recording"
+        : state === AxolState.Saving
+          ? "● Saving…"
+          : state === AxolState.DataCollection
+            ? "● Data Collection"
+            : "● Teleop"
 
   return (
     <Text

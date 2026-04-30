@@ -5,6 +5,7 @@ export enum AxolState {
   DataCollection = "data_collection",
   Recording = "recording",
   Saving = "saving",
+  Error = "error",
 }
 
 export enum AxolConnectionStatus {
