@@ -10,7 +10,7 @@ import {
   useAxolVRClient,
 } from "@almond/axol-vr-client"
 
-const store = createXRStore({ handTracking: false, bodyTracking: true })
+const store = createXRStore({ handTracking: false, bodyTracking: true, controller: false })
 
 const L_ELBOW_JOINT = "left-arm-lower" as XRBodyJoint
 const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
@@ -168,7 +168,7 @@ function ExitButton() {
 
   return (
     <Text
-      position={[-0.2, 0.22, -0.5]}
+      position={[-0.2, 0.1, -0.5]}
       fontSize={0.02}
       fontWeight="bold"
       color={hovered ? "yellow" : "white"}
@@ -210,7 +210,7 @@ function StateDisplay({
 
   return (
     <Text
-      position={[0.2, 0.22, -0.5]}
+      position={[0.2, 0.1, -0.5]}
       fontSize={0.02}
       fontWeight="bold"
       color={color}
@@ -313,7 +313,7 @@ function HelpIcon() {
   const [open, setOpen] = useState(false)
 
   return (
-    <group position={[0, 0.22, -0.5]}>
+    <group position={[0, 0.1, -0.5]}>
       <Text
         fontSize={0.02}
         fontWeight="bold"
