@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from "react"
 import { AxolConnectionStatus } from "./types"
 
+const CONNECT_TIMEOUT_MS = 5000
+
 export function useAxolVRClient(hostname: string, port = 8000, maxRetries = 3, retryMs = 1000) {
   const [status, setStatus] = useState<AxolConnectionStatus>(AxolConnectionStatus.Idle)
   const wsRef = useRef<WebSocket | null>(null)
   const retryCountRef = useRef(0)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
+  function clearConnectTimeout() {
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current)
+      connectTimeoutRef.current = null
+    }
+  }
+
   function cleanup() {
+    clearConnectTimeout()
     const ws = wsRef.current
     if (ws) {
       ws.onopen = null
@@ -34,6 +45,11 @@ export function useAxolVRClient(hostname: string, port = 8000, maxRetries = 3, r
 
   function connectWS() {
     if (!mountedRef.current) return
+    // Cancel any pending retry timer so it cannot race with this fresh attempt.
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
     cleanup()
     setStatus(AxolConnectionStatus.Connecting)
 
@@ -41,14 +57,29 @@ export function useAxolVRClient(hostname: string, port = 8000, maxRetries = 3, r
       const ws = new WebSocket(`wss://${hostname}:${port}/ws`)
       wsRef.current = ws
 
+      // Abort connections that stay in CONNECTING state (e.g. mDNS lookup hangs).
+      connectTimeoutRef.current = setTimeout(() => {
+        if (!mountedRef.current) return
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = null
+          ws.onclose = null
+          ws.onerror = null
+          ws.close()
+          wsRef.current = null
+          scheduleRetry()
+        }
+      }, CONNECT_TIMEOUT_MS)
+
       ws.onopen = () => {
         if (!mountedRef.current) return
+        clearConnectTimeout()
         retryCountRef.current = 0
         setStatus(AxolConnectionStatus.Open)
       }
 
       ws.onclose = () => {
         if (!mountedRef.current) return
+        clearConnectTimeout()
         wsRef.current = null
         scheduleRetry()
       }
@@ -59,6 +90,7 @@ export function useAxolVRClient(hostname: string, port = 8000, maxRetries = 3, r
       }
     } catch {
       if (!mountedRef.current) return
+      clearConnectTimeout()
       setStatus(AxolConnectionStatus.Error)
       scheduleRetry()
     }
