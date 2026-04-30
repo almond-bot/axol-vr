@@ -23,7 +23,7 @@ React components and hooks for connecting to the Almond Axol SDK WebSocket serve
 |---|---|
 | `AxolVRClient` | R3F component — reads XR input sources each frame and streams pose data over WebSocket |
 | `useAxolVRClient` | Hook — manages WebSocket lifecycle (connect, disconnect, auto-retry) |
-| `AxolState` | Enum — `Teleop`, `DataCollection`, `Recording` |
+| `AxolState` | Enum — `Teleop`, `DataCollection`, `Recording`, `Saving`, `Error` |
 | `AxolConnectionStatus` | Enum — `Idle`, `Connecting`, `Open`, `Error`, `Failed` |
 | `AxolPoseData` | Type — shape of each frame sent over the WebSocket |
 
@@ -58,7 +58,7 @@ Each frame sends a JSON message over the WebSocket:
   l_grip:  number    // left grip (0 = fully gripped, 1 = open)
   r_grip:  number    // right grip
   reset:   boolean   // true on the frame X was pressed
-  state:   "teleop" | "data_collection" | "recording"
+  state:   "teleop" | "data_collection" | "recording"  // client-driven; "saving" is server-pushed via feedback message
 }
 ```
 
@@ -83,9 +83,21 @@ Each frame sends a JSON message over the WebSocket:
 Teleop ──[B]──► DataCollection ──[A]──► (countdown 3s) ──► Recording
    ▲                 ▲                                          │
    └────────[B]──────┘                                   [A or X]
+                                                               │
+                                                          (server push)
+                                                               │
+                                                             Saving
+                                                               │
+                                                          (save done)
+                                                               │
+                                                         DataCollection
 ```
 
 During the 3-second countdown the state sent to the server remains `DataCollection`. Once the countdown completes it transitions to `Recording`.
+
+The `Saving` state is **server-driven**: the Python SDK broadcasts `{"type": "state", "value": "saving"}` over the WebSocket immediately when recording stops, then `{"type": "state", "value": "data_collection"}` once `save_episode()` completes. While in `Saving`, all A/B/X button actions except Y (exit) are blocked.
+
+The `Error` state is also **server-driven**: broadcasting `{"type": "state", "value": "error"}` displays an error indicator in the headset UI and blocks all recording controls.
 
 ## App
 
@@ -124,19 +136,17 @@ The `installCommand` removes any macOS-generated lock file to avoid missing Linu
 
 ## Python SDK
 
-The Almond Axol SDK receives these WebSocket frames. The relevant Pydantic models live in `almond_axol/vr/models.py`:
+The Almond Axol SDK receives frames from the headset and can push state feedback back. The relevant models live in `almond_axol/vr/models.py`:
 
 ```python
 class VRState(str, Enum):
     TELEOP = "teleop"
     DATA_COLLECTION = "data_collection"
     RECORDING = "recording"
+    SAVING = "saving"          # server-pushed only; blocks recording controls
+    ERROR = "error"            # server-pushed only; shows error indicator in headset UI
 
-class VRPose(BaseModel):
-    position: VRPosition       # { x, y, z }
-    quaternion: VRQuaternion   # { x, y, z, w }
-
-class VRFrame(BaseModel):
+class VRFrame(BaseModel):     # headset → server (every XR frame)
     l_ee: VRPose
     r_ee: VRPose
     l_elbow: VRPosition
@@ -146,5 +156,15 @@ class VRFrame(BaseModel):
     l_grip: float
     r_grip: float
     reset: bool
-    state: VRState
+    state: VRState             # one of TELEOP / DATA_COLLECTION / RECORDING
 ```
+
+**Server → headset feedback**
+
+The server can push a state override to all connected headsets at any time:
+
+```json
+{ "type": "state", "value": "saving" }
+```
+
+Use `AxolVRTeleop.send_feedback_state(VRState.SAVING)` / `send_feedback_state(VRState.DATA_COLLECTION)` to block and unblock recording controls on the headset while an episode is being written to disk.

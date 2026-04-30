@@ -26,8 +26,31 @@ export function AxolVRClient({
   const prevARef = useRef(false)
   const prevBRef = useRef(false)
   const recordingPendingAtRef = useRef<number | null>(null)
+  // Server-pushed state override (e.g. "saving"). Applied at start of each frame.
+  const serverStateRef = useRef<AxolState | null>(null)
+  // Track which WebSocket we have attached onmessage to avoid re-attaching.
+  const wsWithHandlerRef = useRef<WebSocket | null>(null)
 
   useFrame(() => {
+    // Attach onmessage to the WebSocket whenever it changes so we can receive
+    // server-pushed state overrides (e.g. the "saving" state after recording).
+    const currentWs = wsRef.current
+    if (currentWs !== wsWithHandlerRef.current) {
+      wsWithHandlerRef.current = currentWs
+      if (currentWs) {
+        currentWs.onmessage = (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(event.data as string) as { type: string; value: string }
+            if (msg.type === "state") {
+              serverStateRef.current = msg.value as AxolState
+            }
+          } catch {
+            // ignore malformed messages
+          }
+        }
+      }
+    }
+
     const session = gl.xr.getSession()
     if (!session) return
 
@@ -57,7 +80,21 @@ export function AxolVRClient({
     prevARef.current = aPressed
     prevBRef.current = bPressed
 
+    // Apply server-pushed state override before processing button presses.
+    if (serverStateRef.current !== null) {
+      const next = serverStateRef.current
+      serverStateRef.current = null
+      stateRef.current = next
+      // Cancel any pending countdown when entering saving state.
+      if (next === AxolState.Saving) {
+        recordingPendingAtRef.current = null
+        onPendingRecording?.(null)
+      }
+      onStateChange?.(next)
+    }
+
     const state = stateRef.current
+    const isSaving = state === AxolState.Saving
 
     function setState(next: AxolState) {
       stateRef.current = next
@@ -66,9 +103,9 @@ export function AxolVRClient({
 
     const isPending = recordingPendingAtRef.current !== null
 
-    // X — reset; also cancels pending/recording
+    // X — reset; also cancels pending/recording (not allowed while saving)
     let reset = false
-    if (xEdge) {
+    if (xEdge && !isSaving) {
       reset = true
       if (state === AxolState.Recording || isPending) {
         setState(AxolState.DataCollection)
@@ -82,13 +119,13 @@ export function AxolVRClient({
       onExit?.()
     }
 
-    // B (right) — swap teleop ↔ data_collection (disabled when recording or pending)
-    if (bEdge && state !== AxolState.Recording && !isPending) {
+    // B (right) — swap teleop ↔ data_collection (disabled when recording, pending, or saving)
+    if (bEdge && state !== AxolState.Recording && !isPending && !isSaving) {
       setState(state === AxolState.Teleop ? AxolState.DataCollection : AxolState.Teleop)
     }
 
-    // A — start pending (3s countdown) or stop recording immediately; A cancels pending too
-    if (aEdge) {
+    // A — start pending (3s countdown) or stop recording; blocked while saving
+    if (aEdge && !isSaving) {
       if (state === AxolState.Recording) {
         setState(AxolState.DataCollection)
       } else if (state === AxolState.DataCollection && !isPending) {

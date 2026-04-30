@@ -190,6 +190,14 @@ function ExitButton() {
   )
 }
 
+const STATUS_DISPLAY: Partial<Record<AxolState | "pending", { color: string; label: string }>> = {
+  pending: { color: "yellow", label: "● Starting…" },
+  [AxolState.Error]: { color: "#f87171", label: "● Error" },
+  [AxolState.Recording]: { color: "red", label: "● Recording" },
+  [AxolState.Saving]: { color: "orange", label: "● Saving…" },
+  [AxolState.DataCollection]: { color: "blue", label: "● Data Collection" },
+}
+
 function StateDisplay({
   state,
   isRecordingPending,
@@ -197,20 +205,8 @@ function StateDisplay({
   state: AxolState
   isRecordingPending: boolean
 }) {
-  const color = isRecordingPending
-    ? "yellow"
-    : state === AxolState.Recording
-      ? "red"
-      : state === AxolState.DataCollection
-        ? "blue"
-        : "white"
-  const label = isRecordingPending
-    ? "● Starting…"
-    : state === AxolState.Recording
-      ? "● Recording"
-      : state === AxolState.DataCollection
-        ? "● Data Collection"
-        : "● Teleop"
+  const displayState: AxolState | "pending" = isRecordingPending ? "pending" : state
+  const { color, label } = STATUS_DISPLAY[displayState] ?? { color: "white", label: "● Teleop" }
 
   return (
     <Text
