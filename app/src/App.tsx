@@ -10,7 +10,11 @@ import {
   useAxolVRClient,
 } from "@almond/axol-vr-client"
 
-const store = createXRStore({ handTracking: false, bodyTracking: true, controller: false })
+const store = createXRStore({
+  handTracking: false,
+  bodyTracking: true,
+  controller: { model: false },
+})
 
 const L_ELBOW_JOINT = "left-arm-lower" as XRBodyJoint
 const R_ELBOW_JOINT = "right-arm-lower" as XRBodyJoint
