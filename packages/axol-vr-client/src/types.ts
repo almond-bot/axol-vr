@@ -4,6 +4,7 @@ export enum AxolState {
   Teleop = "teleop",
   DataCollection = "data_collection",
   Recording = "recording",
+  Saving = "saving",
 }
 
 export enum AxolConnectionStatus {

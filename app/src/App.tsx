@@ -197,16 +197,20 @@ function StateDisplay({
     ? "yellow"
     : state === AxolState.Recording
       ? "red"
-      : state === AxolState.DataCollection
-        ? "blue"
-        : "white"
+      : state === AxolState.Saving
+        ? "orange"
+        : state === AxolState.DataCollection
+          ? "blue"
+          : "white"
   const label = isRecordingPending
     ? "● Starting…"
     : state === AxolState.Recording
       ? "● Recording"
-      : state === AxolState.DataCollection
-        ? "● Data Collection"
-        : "● Teleop"
+      : state === AxolState.Saving
+        ? "● Saving…"
+        : state === AxolState.DataCollection
+          ? "● Data Collection"
+          : "● Teleop"
 
   return (
     <Text
