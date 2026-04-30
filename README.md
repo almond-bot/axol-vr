@@ -23,7 +23,7 @@ React components and hooks for connecting to the Almond Axol SDK WebSocket serve
 |---|---|
 | `AxolVRClient` | R3F component — reads XR input sources each frame and streams pose data over WebSocket |
 | `useAxolVRClient` | Hook — manages WebSocket lifecycle (connect, disconnect, auto-retry) |
-| `AxolState` | Enum — `Teleop`, `DataCollection`, `Recording`, `Saving` |
+| `AxolState` | Enum — `Teleop`, `DataCollection`, `Recording`, `Saving`, `Error` |
 | `AxolConnectionStatus` | Enum — `Idle`, `Connecting`, `Open`, `Error`, `Failed` |
 | `AxolPoseData` | Type — shape of each frame sent over the WebSocket |
 
@@ -97,6 +97,8 @@ During the 3-second countdown the state sent to the server remains `DataCollecti
 
 The `Saving` state is **server-driven**: the Python SDK broadcasts `{"type": "state", "value": "saving"}` over the WebSocket immediately when recording stops, then `{"type": "state", "value": "data_collection"}` once `save_episode()` completes. While in `Saving`, all A/B/X button actions except Y (exit) are blocked.
 
+The `Error` state is also **server-driven**: broadcasting `{"type": "state", "value": "error"}` displays an error indicator in the headset UI and blocks all recording controls.
+
 ## App
 
 The `app/` package is a Vite + React app that wraps the client library into a full WebXR UI deployed to Vercel.
@@ -141,7 +143,8 @@ class VRState(str, Enum):
     TELEOP = "teleop"
     DATA_COLLECTION = "data_collection"
     RECORDING = "recording"
-    SAVING = "saving"          # server-pushed only; never sent by the headset
+    SAVING = "saving"          # server-pushed only; blocks recording controls
+    ERROR = "error"            # server-pushed only; shows error indicator in headset UI
 
 class VRFrame(BaseModel):     # headset → server (every XR frame)
     l_ee: VRPose
